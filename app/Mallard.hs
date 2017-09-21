@@ -92,9 +92,10 @@ run = do
     let (mNodeTable, mGraph) = generateMigrationGraph mTable
     modify (\s -> s & migrationNodeTable .~ mNodeTable
                     & migrationGraph .~ mGraph)
-
+    --
     ensureMigratonSchema
-    ensureApplicationSchema
+    --
+    ensureApplicationSchema mTable mNodeTable mGraph
 
     -- New application plan.
 

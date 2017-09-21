@@ -18,28 +18,30 @@ import           Control.Monad.IO.Class
 import           Control.Monad.State
 import           Crypto.Hash
 import           Data.Byteable
-import           Data.ByteString             (ByteString)
-import qualified Data.ByteString.Char8       as CBS
+import           Data.ByteString                   (ByteString)
+import qualified Data.ByteString.Char8             as CBS
 import           Data.Foldable
-import           Data.HashMap.Strict         (HashMap)
-import qualified Data.HashMap.Strict         as Map
+import qualified Data.Graph.Inductive.Graph        as G
+import qualified Data.Graph.Inductive.PatriciaTree as G
+import           Data.HashMap.Strict               (HashMap)
+import qualified Data.HashMap.Strict               as Map
 import           Data.Int
 import           Data.Monoid
 import           Data.String.Interpolation
-import qualified Data.Text                   as T
-import qualified Data.Text.Encoding          as T
+import qualified Data.Text                         as T
+import qualified Data.Text.Encoding                as T
 import           Database.Mallard.Graph
 import           Database.Mallard.Types
 import           Database.Mallard.Validation
-import qualified Hasql.Decoders              as D
-import qualified Hasql.Encoders              as E
-import qualified Hasql.Pool                  as Pool
+import qualified Hasql.Decoders                    as D
+import qualified Hasql.Encoders                    as E
+import qualified Hasql.Pool                        as Pool
 import           Hasql.Query
 import           Hasql.Session
-import           Hasql.Transaction           (IsolationLevel (..), Mode (..),
-                                              Transaction)
-import qualified Hasql.Transaction           as HT
-import qualified Hasql.Transaction.Sessions  as HT
+import           Hasql.Transaction                 (IsolationLevel (..),
+                                                    Mode (..), Transaction)
+import qualified Hasql.Transaction                 as HT
+import qualified Hasql.Transaction.Sessions        as HT
 import           Path
 
 class HasPostgreConnection a where
@@ -67,14 +69,17 @@ ensureMigratonSchema = do
         runDB $ HT.transaction Serializable Write $ applyMigrationSchemaMigraiton a
         liftIO $ putStrLn $ "Migrator Version: " <> show version
 
+-- ensureApplicationSchema
+--     :: ( MonadIO m, MonadState s m
+--         , HasPostgreConnection s, HasMigrationTable s, HasMigrationNodeTable s, HasMigrationGraph s) => m ()
 ensureApplicationSchema
-    :: ( MonadIO m, MonadState s m
-        , HasPostgreConnection s, HasMigrationTable s, HasMigrationNodeTable s, HasMigrationGraph s) => m ()
-ensureApplicationSchema = do
-    mTable <- fmap (^. migrationTable) get
+    :: (MonadIO m, MonadState s m, HasPostgreConnection s)
+    => HashMap MigrationId Migration -> HashMap MigrationId G.Node -> G.Gr MigrationId () -> m ()
+ensureApplicationSchema mTable mNodeMap mGraph = do
+    -- mTable <- fmap (^. migrationTable) get
     appliedMigrationData <- runDB $ getAppliedMigrationData
-    mapM_ validateChecksum appliedMigrationData
-    unapplied <- getUnappliedMigrations (fmap (\(_, mid, _) -> mid) appliedMigrationData)
+    -- mapM_ validateChecksum appliedMigrationData -- Move this to main
+    let unapplied = getUnappliedMigrations mNodeMap mGraph (fmap (\(_, mid, _) -> mid) appliedMigrationData)
     flip mapM_ unapplied $ \mId -> do
         runDB $ HT.transaction Serializable Write $ applyMigration mTable mId
         liftIO $ putStrLn $ "Applied migration: " <> show mId

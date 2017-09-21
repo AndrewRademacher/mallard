@@ -9,7 +9,6 @@ module Database.Mallard.Graph
     ) where
 
 import           Control.Lens
-import           Control.Monad.State.Strict
 import qualified Data.Graph.Inductive.Basic        as G
 import qualified Data.Graph.Inductive.Graph        as G
 import qualified Data.Graph.Inductive.PatriciaTree as G
@@ -40,17 +39,11 @@ generateMigrationGraph mTable = (nodeLookupMap, graph)
                 $ G.insEdges (concatMap (\m' -> zip3 (repeat (lookupNode (m' ^. migrationName))) (replaceRequires m') (repeat ())) migrations)
                 $ G.insNodes nodeAssignment G.empty
 
-getUnappliedMigrations
-    :: ( MonadState s m
-        , HasMigrationNodeTable s, HasMigrationGraph s )
-    => [MigrationId] -> m [MigrationId]
-getUnappliedMigrations applied = do
-    mNodeTable <- fmap (^. migrationNodeTable) get
-    mGraph <- fmap (^. migrationGraph) get
-
-    let appliedMigrationIds = Set.fromList applied
+getUnappliedMigrations :: HashMap MigrationId G.Node -> G.Gr MigrationId () -> [MigrationId] -> [MigrationId]
+getUnappliedMigrations mNodeTable mGraph applied = G.topsort' unappliedGraph
+    where
+        appliedMigrationIds = Set.fromList applied
         unappliedGraph = flip G.delNodes mGraph
             $ fmap (\(_, v) -> v) $ Map.toList
             $ Map.filterWithKey (\k _ -> Set.member k appliedMigrationIds)
             $ mNodeTable
-    return $ G.topsort' unappliedGraph
