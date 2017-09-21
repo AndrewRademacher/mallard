@@ -100,18 +100,15 @@ valueAbsFile = D.custom $ \_ bs ->
         Left er -> Left (T.pack (show er))
         Right v -> Right v
 
-applyMigrations :: (MonadIO m, MonadState s m, HasPostgreConnection s) => MigrationTable -> [MigrationId] -> m ()
-applyMigrations mTable = mapM_ (applyMigration mTable)
+applyMigrations :: (MonadIO m, MonadState s m, HasPostgreConnection s) => [Migration] -> m ()
+applyMigrations = mapM_ applyMigration
 
-applyMigration :: (MonadIO m, MonadState s m, HasPostgreConnection s) => MigrationTable -> MigrationId -> m ()
-applyMigration mTable mid = do
-    runDB $ HT.transaction Serializable Write $
-        case Map.lookup mid mTable of
-            Nothing -> error "Attempted to apply a migration that doesn't exist."
-            Just m -> do
-                HT.sql (T.encodeUtf8 (m ^. migrationScript))
-                HT.query m (statement stmt encoder decoder True)
-    liftIO $ putStrLn $ "Applied migration: " <> show mid
+applyMigration :: (MonadIO m, MonadState s m, HasPostgreConnection s) => Migration -> m ()
+applyMigration m = do
+    runDB $ HT.transaction Serializable Write $ do
+        HT.sql (T.encodeUtf8 (m ^. migrationScript))
+        HT.query m (statement stmt encoder decoder True)
+    liftIO $ putStrLn $ "Applied migration: " <> show (m ^. migrationName)
     where
         stmt = "INSERT INTO mallard.applied_migrations (name, file_path, description, requires, checksum, script_text) VALUES ($1, $2, $3, $4, $5, $6)"
         encoder =

@@ -87,5 +87,6 @@ run = do
 
     --
     let unapplied = getUnappliedMigrations mGraph (Map.keys mApplied)
-    applyMigrations mPlanned unapplied
+    toApply <- inflateMigrationIds mPlanned unapplied
+    applyMigrations toApply
     --
