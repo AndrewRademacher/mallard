@@ -14,19 +14,16 @@ module Database.Mallard.Postgre
 
 import           Control.Exception
 import           Control.Lens
-import           Control.Monad.Catch.Pure
 import           Control.Monad.IO.Class
 import           Control.Monad.State
 import           Crypto.Hash
 import           Data.Byteable
 import           Data.ByteString             (ByteString)
-import qualified Data.ByteString.Char8       as CBS
 import           Data.Foldable
 import qualified Data.HashMap.Strict         as Map
 import           Data.Int
 import           Data.Monoid
 import           Data.String.Interpolation
-import qualified Data.Text                   as T
 import qualified Data.Text.Encoding          as T
 import           Database.Mallard.Types
 import           Database.Mallard.Validation
@@ -39,7 +36,6 @@ import           Hasql.Transaction           (IsolationLevel (..), Mode (..),
                                               Transaction)
 import qualified Hasql.Transaction           as HT
 import qualified Hasql.Transaction.Sessions  as HT
-import           Path
 
 class HasPostgreConnection a where
     postgreConnection :: Lens' a Pool.Pool
@@ -81,11 +77,10 @@ getAppliedMigrations = runDB $ do
     lst <- query () (statement stmt encoder decoder True)
     return $ Map.fromList $ fmap (\m -> (m ^. migrationName, m)) lst
     where
-        stmt = "SELECT name, file_path, description, requires, checksum, script_text FROM mallard.applied_migrations;"
+        stmt = "SELECT name, description, requires, checksum, script_text FROM mallard.applied_migrations;"
         encoder = E.unit
         decoder = D.rowsList $ Migration
             <$> D.value (MigrationId <$> D.text)
-            <*> D.value valueAbsFile
             <*> D.value D.text
             <*> D.value (D.array (D.arrayDimension replicateM (D.arrayValue (MigrationId <$> D.text))))
             <*> D.value valueDigest
@@ -97,12 +92,6 @@ valueDigest = D.custom $ \_ bs ->
         Nothing -> Left "ByteString was incorrect length for selected Digest type."
         Just v -> Right v
 
-valueAbsFile :: D.Value (Path Abs File)
-valueAbsFile = D.custom $ \_ bs ->
-    case runCatch (parseAbsFile (CBS.unpack bs)) of
-        Left er -> Left (T.pack (show er))
-        Right v -> Right v
-
 applyMigrations :: (MonadIO m, MonadState s m, HasPostgreConnection s) => [Migration] -> m ()
 applyMigrations = mapM_ applyMigration
 
@@ -113,10 +102,9 @@ applyMigration m = do
         HT.query m (statement stmt encoder decoder True)
     liftIO $ putStrLn $ "Applied migration: " <> show (m ^. migrationName)
     where
-        stmt = "INSERT INTO mallard.applied_migrations (name, file_path, description, requires, checksum, script_text) VALUES ($1, $2, $3, $4, $5, $6)"
+        stmt = "INSERT INTO mallard.applied_migrations (name, description, requires, checksum, script_text) VALUES ($1, $2, $3, $4, $5)"
         encoder =
             contramap (unMigrationId . _migrationName) (E.value E.text) <>
-            contramap (T.pack . toFilePath . _migrationFile) (E.value E.text) <>
             contramap _migrationDescription (E.value E.text) <>
             contramap (fmap unMigrationId . _migrationRequires) (E.value (E.array (E.arrayDimension foldl' (E.arrayValue E.text)))) <>
             contramap (toBytes . _migrationChecksum) (E.value E.bytea) <>
