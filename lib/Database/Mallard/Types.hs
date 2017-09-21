@@ -40,6 +40,6 @@ $(makeClassy ''Migration)
 
 scriptsMigrationSchema :: [(Int64, ByteString)]
 scriptsMigrationSchema =
-    [ (0, $(embedFile "sql/migrator/0000-setup.sql"))
-    , (1, $(embedFile "sql/migrator/0001-applied-migrations.sql"))
+    [ (0, $(embedFile "sql/mallard/0000-setup.sql"))
+    , (1, $(embedFile "sql/mallard/0001-applied-migrations.sql"))
     ]

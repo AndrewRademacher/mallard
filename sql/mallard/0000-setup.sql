@@ -1,6 +1,6 @@
-CREATE SCHEMA migration;
+CREATE SCHEMA mallard;
 
-SET search_path TO migration;
+SET search_path TO mallard;
 
 CREATE TABLE migrator_version(
 	version 		bigint   			NOT NULL,

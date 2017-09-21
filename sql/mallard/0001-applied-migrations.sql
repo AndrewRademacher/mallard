@@ -1,4 +1,4 @@
-SET search_path TO migration;
+SET search_path TO mallard;
 
 CREATE TABLE applied_migrations(
     id              bigserial       NOT NULL,

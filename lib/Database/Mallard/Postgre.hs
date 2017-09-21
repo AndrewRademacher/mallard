@@ -92,7 +92,7 @@ runDB session = do
 getAppliedMigrationData :: Session [(Int64, MigrationId, MigrationDigest)]
 getAppliedMigrationData = query () (statement stmt encoder decoder True)
     where
-        stmt = "SELECT id, name, checksum FROM migration.applied_migrations;"
+        stmt = "SELECT id, name, checksum FROM mallard.applied_migrations;"
         encoder = E.unit
         decoder = D.rowsList ((,,) <$> D.value D.int8
                                         <*> fmap MigrationId (D.value D.text)
@@ -105,7 +105,7 @@ getAppliedMigrations
     => m [Migration]
 getAppliedMigrations = runDB $ query () (statement stmt encoder decoder True)
     where
-        stmt = "SELECT name, file_path, description, requires, checksum, script_text FROM migration.applied_migrations;"
+        stmt = "SELECT name, file_path, description, requires, checksum, script_text FROM mallard.applied_migrations;"
         encoder = E.unit
         decoder = D.rowsList $ Migration
             <$> D.value (MigrationId <$> D.text)
@@ -132,7 +132,7 @@ applyMigration mTable mid =
             HT.sql (T.encodeUtf8 (m ^. migrationScript))
             HT.query m (statement stmt encoder decoder True)
     where
-        stmt = "INSERT INTO migration.applied_migrations (name, file_path, description, requires, checksum, script_text) VALUES ($1, $2, $3, $4, $5, $6)"
+        stmt = "INSERT INTO mallard.applied_migrations (name, file_path, description, requires, checksum, script_text) VALUES ($1, $2, $3, $4, $5, $6)"
         encoder =
             contramap (unMigrationId . _migrationName) (E.value E.text) <>
             contramap (T.pack . toFilePath . _migrationFile) (E.value E.text) <>
@@ -148,7 +148,7 @@ applyMigrationSchemaMigraiton (version, script) = do
     HT.sql script
     HT.query version (statement stmt encoder decoder True)
     where
-        stmt = "INSERT INTO migration.migrator_version (version) VALUES ($1)"
+        stmt = "INSERT INTO mallard.migrator_version (version) VALUES ($1)"
         encoder = E.value E.int8
         decoder = D.unit
 
@@ -165,7 +165,7 @@ getMigrationSchemaVersion = runDB $ do
                 Just x  -> return $ MigrationVersion x
         else return NotInit
     where
-        stmt = "SELECT coalesce(max(version), 0) as max_version FROM migration.migrator_version"
+        stmt = "SELECT coalesce(max(version), 0) as max_version FROM mallard.migrator_version"
 
 isMigrationVersionZero :: Session Bool
 isMigrationVersionZero = do
