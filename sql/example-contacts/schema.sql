@@ -1,4 +1,4 @@
---/
+--/ migration
 -- name: "schema"
 -- description: "Construct primary schema."
 -- requires: []

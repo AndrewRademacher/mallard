@@ -1,4 +1,4 @@
---/
+--/ migration
 -- name: "tables/person"
 -- description: "The root person table."
 -- requires: ["schema"]

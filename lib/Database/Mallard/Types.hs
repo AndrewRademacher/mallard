@@ -37,6 +37,12 @@ newtype MigrationId = MigrationId { unMigrationId :: Text }
 instance Show MigrationId where
     show (MigrationId txt) = txt ^. unpacked
 
+newtype TestId = TestId { unTestId :: Text }
+    deriving (Eq, Ord, Hashable)
+
+instance Show TestId where
+    show (TestId txt) = txt ^. unpacked
+
 type MigrationDigest = Digest SHA256
 
 data Migration
@@ -50,6 +56,14 @@ data Migration
     deriving (Show)
 
 $(makeClassy ''Migration)
+
+data Test
+    = Test
+        { _testName        :: TestId
+        , _testDescription :: Text
+        }
+
+$(makeClassy ''Test)
 
 scriptsMigrationSchema :: [(Int64, ByteString)]
 scriptsMigrationSchema =
