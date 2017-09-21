@@ -28,8 +28,12 @@ data MigrationGraph
 emptyMigrationGraph :: MigrationGraph
 emptyMigrationGraph = MigrationGraph Map.empty G.empty
 
-mkMigrationGraph :: MigrationTable -> MigrationGraph
-mkMigrationGraph mTable = MigrationGraph nodeLookupMap graph
+-- | Graph will only build if there are no circular references.
+mkMigrationGraph :: MigrationTable -> Maybe MigrationGraph
+mkMigrationGraph mTable =
+    if hasCircle graph
+        then Nothing
+        else Just $ MigrationGraph nodeLookupMap graph
     where
         migrations = Map.elems mTable
         nodeAssignment = zip [1..] (fmap (^. migrationName) migrations)
@@ -42,6 +46,9 @@ mkMigrationGraph mTable = MigrationGraph nodeLookupMap graph
         graph = G.grev
                 $ G.insEdges (concatMap (\m' -> zip3 (repeat (lookupNode (m' ^. migrationName))) (replaceRequires m') (repeat ())) migrations)
                 $ G.insNodes nodeAssignment G.empty
+
+hasCircle :: G.Gr a b -> Bool
+hasCircle g = or $ fmap (\g' -> length g' /= 1) $ G.scc g
 
 getUnappliedMigrations :: MigrationGraph -> [MigrationId] -> [MigrationId]
 getUnappliedMigrations (MigrationGraph mNodeTable mGraph) applied = G.topsort' unappliedGraph

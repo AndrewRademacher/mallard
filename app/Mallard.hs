@@ -11,6 +11,7 @@ import           Control.Monad.IO.Class
 import           Control.Monad.Reader
 import           Control.Monad.State.Strict
 import qualified Data.HashMap.Strict        as Map
+import           Data.Maybe
 import           Data.Monoid
 import           Data.Text                  (Text)
 import           Data.Text.Lens             hiding (text)
@@ -89,7 +90,7 @@ run = do
     mApplied <- getAppliedMigrations
     modify (\s -> s & appliedMigrationTable .~ mApplied)
     --
-    let mGraph = mkMigrationGraph mPlanned
+    let mGraph = fromJust $ mkMigrationGraph mPlanned
     modify (\s -> s & migrationGraph .~ mGraph)
     --
     ensureMigratonSchema
