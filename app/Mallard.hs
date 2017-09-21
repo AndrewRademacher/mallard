@@ -83,19 +83,23 @@ run = do
     files <- scanDirectoryForFiles root
     modify (\s -> s & migrationFiles .~ files)
     --
-    mTable <- importMigrations root files
-    modify (\s -> s & plannedMigrationTable .~ mTable)
+    mPlanned <- importMigrations root files
+    modify (\s -> s & plannedMigrationTable .~ mPlanned)
     --
     mApplied <- getAppliedMigrations
     modify (\s -> s & appliedMigrationTable .~ mApplied)
     --
-    let mGraph = mkMigrationGraph mTable
+    let mGraph = mkMigrationGraph mPlanned
     modify (\s -> s & migrationGraph .~ mGraph)
     --
     ensureMigratonSchema
     --
+
+    validateAppliedMigrations mPlanned mApplied
+
+    --
     let unapplied = getUnappliedMigrations mGraph (Map.keys mApplied)
-    applyMigrations mTable unapplied
+    applyMigrations mPlanned unapplied
     --
 
     -- New application plan.

@@ -4,31 +4,35 @@
 {-# LANGUAGE TemplateHaskell       #-}
 
 module Database.Mallard.Validation
-    ( validateChecksum
+    ( validateAppliedMigrations
+    , validateAppliedMigration
     , AppliedMigrationMissingException (..)
     , DigestMismatchException (..)
     ) where
 
 import           Control.Exception
 import           Control.Lens
-import           Control.Monad.State.Strict
-import qualified Data.HashMap.Strict        as Map
-import           Data.Int
+import           Control.Monad.IO.Class
+import qualified Data.HashMap.Strict       as Map
 import           Data.String.Interpolation
 import           Database.Mallard.Types
 
-validateChecksum
-    :: ( MonadState s m
-        , HasPlannedMigrationTable s )
-    => (Int64, MigrationId, MigrationDigest) -> m ()
-validateChecksum (_, mid, digest) = do
-    mTable <- fmap (^. plannedMigrationTable) get
-    case Map.lookup mid mTable of
+-- | Validates applied migrations against planned migrations
+validateAppliedMigrations :: (MonadIO m) => MigrationTable -> MigrationTable -> m ()
+validateAppliedMigrations planned applied = mapM_ (validateAppliedMigration planned) (Map.elems applied)
+
+validateAppliedMigration :: (MonadIO m) => MigrationTable -> Migration -> m ()
+validateAppliedMigration plan aMig =
+    case Map.lookup mid plan of
         Nothing -> throw $ AppliedMigrationMissingException mid
-        Just mig ->
-            if (mig ^. migrationChecksum) == digest
+        Just pMig ->
+            let pCheck = pMig ^. migrationChecksum
+                aCheck = aMig ^. migrationChecksum
+            in if aCheck == pCheck
                 then return ()
-                else throw $ DigestMismatchException mid (mig ^. migrationChecksum) mid digest
+                else throw $ DigestMismatchException mid pCheck mid aCheck
+    where
+        mid = aMig ^. migrationName
 
 -- Exceptions
 
