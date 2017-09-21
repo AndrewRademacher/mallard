@@ -17,6 +17,8 @@ import           Path
 class HasMigrationTable a where
     migrationTable :: Lens' a (HashMap MigrationId Migration)
 
+type MigrationTable = HashMap MigrationId Migration
+
 newtype MigrationId = MigrationId { unMigrationId :: Text }
     deriving (Eq, Ord, Hashable)
 

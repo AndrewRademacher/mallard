@@ -5,23 +5,20 @@
 
 module Main where
 
-import           Control.Lens                      hiding (argument, noneOf)
+import           Control.Lens               hiding (argument, noneOf)
 import           Control.Monad.Catch
 import           Control.Monad.IO.Class
 import           Control.Monad.Reader
 import           Control.Monad.State.Strict
-import qualified Data.Graph.Inductive.Graph        as G
-import qualified Data.Graph.Inductive.PatriciaTree as G
-import           Data.HashMap.Strict               (HashMap)
-import qualified Data.HashMap.Strict               as Map
+import qualified Data.HashMap.Strict        as Map
 import           Data.Monoid
-import           Data.Text                         (Text)
-import           Data.Text.Lens                    hiding (text)
+import           Data.Text                  (Text)
+import           Data.Text.Lens             hiding (text)
 import           Database.Mallard
-import qualified Hasql.Connection                  as Sql
+import qualified Hasql.Connection           as Sql
 import           Hasql.Options.Applicative
-import qualified Hasql.Pool                        as Pool
-import           Options.Applicative               hiding (Parser, runParser)
+import qualified Hasql.Pool                 as Pool
+import           Options.Applicative        hiding (Parser, runParser)
 import           Options.Applicative
 import           Options.Applicative.Text
 import           Path
@@ -43,12 +40,11 @@ appOptionsParser = AppOptions
 
 data AppState
     = AppState
-        { _statePostgreConnection  :: Pool.Pool
-        , _stateRootDirectory      :: Path Abs Dir
-        , _stateMigrationFiles     :: [Path Abs File]
-        , _stateMigrationTable     :: HashMap MigrationId Migration
-        , _stateMigrationNodeTable :: HashMap MigrationId G.Node
-        , _stateMigrationGraph     :: G.Gr MigrationId ()
+        { _statePostgreConnection :: Pool.Pool
+        , _stateRootDirectory     :: Path Abs Dir
+        , _stateMigrationFiles    :: [Path Abs File]
+        , _stateMigrationTable    :: MigrationTable
+        , _stateMigrationGraph    :: MigrationGraph
         }
 
 $(makeClassy ''AppState)
@@ -57,14 +53,13 @@ instance HasPostgreConnection AppState where postgreConnection = statePostgreCon
 instance HasRootDirectory AppState where rootDirectory = stateRootDirectory
 instance HasMigrationFiles AppState where migrationFiles = stateMigrationFiles
 instance HasMigrationTable AppState where migrationTable = stateMigrationTable
-instance HasMigrationNodeTable AppState where migrationNodeTable = stateMigrationNodeTable
 instance HasMigrationGraph AppState where migrationGraph = stateMigrationGraph
 
 main :: IO ()
 main = do
     appOpts <- execParser opts
     pool <- Pool.acquire (1, 30, appOpts ^. optionsPostgreSettings)
-    let initState = AppState pool $(mkAbsDir "/doesnt/exist") [] Map.empty Map.empty G.empty
+    let initState = AppState pool $(mkAbsDir "/doesnt/exist") [] Map.empty emptyMigrationGraph
 
     _ <- (flip runReaderT appOpts . flip runStateT initState) run
             `catchAll` (\e -> putStrLn (displayException e) >> return ((), initState))
@@ -89,13 +84,12 @@ run = do
     mTable <- importMigrations root files
     modify (\s -> s & migrationTable .~ mTable)
     --
-    let (mNodeTable, mGraph) = generateMigrationGraph mTable
-    modify (\s -> s & migrationNodeTable .~ mNodeTable
-                    & migrationGraph .~ mGraph)
+    let mGraph = mkMigrationGraph mTable
+    modify (\s -> s & migrationGraph .~ mGraph)
     --
     ensureMigratonSchema
     --
-    ensureApplicationSchema mTable mNodeTable mGraph
+    ensureApplicationSchema mTable mGraph
 
     -- New application plan.
 

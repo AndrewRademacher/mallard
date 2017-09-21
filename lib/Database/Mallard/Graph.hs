@@ -2,10 +2,11 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 
 module Database.Mallard.Graph
-    ( HasMigrationNodeTable (..)
-    , HasMigrationGraph (..)
-    , generateMigrationGraph
+    ( HasMigrationGraph (..)
+    , MigrationGraph
+    , mkMigrationGraph
     , getUnappliedMigrations
+    , emptyMigrationGraph
     ) where
 
 import           Control.Lens
@@ -18,14 +19,17 @@ import qualified Data.HashMap.Strict               as Map
 import qualified Data.HashSet                      as Set
 import           Database.Mallard.Types
 
-class HasMigrationNodeTable a where
-    migrationNodeTable :: Lens' a (HashMap MigrationId G.Node)
-
 class HasMigrationGraph a where
-    migrationGraph :: Lens' a (G.Gr MigrationId ())
+    migrationGraph :: Lens' a MigrationGraph
 
-generateMigrationGraph :: HashMap MigrationId Migration -> (HashMap MigrationId G.Node, G.Gr MigrationId ())
-generateMigrationGraph mTable = (nodeLookupMap, graph)
+data MigrationGraph
+    = MigrationGraph (HashMap MigrationId G.Node) (G.Gr MigrationId ())
+
+emptyMigrationGraph :: MigrationGraph
+emptyMigrationGraph = MigrationGraph Map.empty G.empty
+
+mkMigrationGraph :: MigrationTable -> MigrationGraph
+mkMigrationGraph mTable = MigrationGraph nodeLookupMap graph
     where
         migrations = Map.elems mTable
         nodeAssignment = zip [1..] (fmap (^. migrationName) migrations)
@@ -39,8 +43,8 @@ generateMigrationGraph mTable = (nodeLookupMap, graph)
                 $ G.insEdges (concatMap (\m' -> zip3 (repeat (lookupNode (m' ^. migrationName))) (replaceRequires m') (repeat ())) migrations)
                 $ G.insNodes nodeAssignment G.empty
 
-getUnappliedMigrations :: HashMap MigrationId G.Node -> G.Gr MigrationId () -> [MigrationId] -> [MigrationId]
-getUnappliedMigrations mNodeTable mGraph applied = G.topsort' unappliedGraph
+getUnappliedMigrations :: MigrationGraph -> [MigrationId] -> [MigrationId]
+getUnappliedMigrations (MigrationGraph mNodeTable mGraph) applied = G.topsort' unappliedGraph
     where
         appliedMigrationIds = Set.fromList applied
         unappliedGraph = flip G.delNodes mGraph
