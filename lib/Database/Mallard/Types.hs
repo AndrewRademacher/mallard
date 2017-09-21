@@ -14,12 +14,6 @@ import           Data.Text           (Text)
 import           Data.Text.Lens
 import           Path
 
-class HasPlannedMigrationTable a where
-    plannedMigrationTable :: Lens' a MigrationTable
-
-class HasAppliedMigrationTable a where
-    appliedMigrationTable :: Lens' a MigrationTable
-
 type MigrationTable = HashMap MigrationId Migration
 
 newtype MigrationId = MigrationId { unMigrationId :: Text }

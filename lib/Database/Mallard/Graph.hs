@@ -2,8 +2,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 
 module Database.Mallard.Graph
-    ( HasMigrationGraph (..)
-    , MigrationGraph
+    ( MigrationGraph
     , mkMigrationGraph
     , getUnappliedMigrations
     , emptyMigrationGraph
@@ -18,9 +17,6 @@ import           Data.HashMap.Strict               (HashMap)
 import qualified Data.HashMap.Strict               as Map
 import qualified Data.HashSet                      as Set
 import           Database.Mallard.Types
-
-class HasMigrationGraph a where
-    migrationGraph :: Lens' a MigrationGraph
 
 data MigrationGraph
     = MigrationGraph (HashMap MigrationId G.Node) (G.Gr MigrationId ())

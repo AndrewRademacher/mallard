@@ -2,9 +2,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 
 module Database.Mallard.File
-    ( HasRootDirectory (..)
-    , HasMigrationFiles (..)
-    , scanDirectoryForFiles
+    ( scanDirectoryForFiles
     , importMigrations
     ) where
 
@@ -23,12 +21,6 @@ import           Database.Mallard.Types
 import           Path
 import           Path.IO
 import           Text.Megaparsec
-
-class HasRootDirectory a where
-    rootDirectory :: Lens' a (Path Abs Dir)
-
-class HasMigrationFiles a where
-    migrationFiles :: Lens' a [Path Abs File]
 
 scanDirectoryForFiles :: (MonadIO m, MonadThrow m) => Path Abs Dir -> m [Path Abs File]
 scanDirectoryForFiles dir = concat <$> walkDirAccum Nothing (\_ _ c -> return [c]) dir
