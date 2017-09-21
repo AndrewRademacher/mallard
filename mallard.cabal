@@ -26,7 +26,7 @@ library
                        Database.Mallard.Validation
                        Database.Mallard
 
-    build-depends:     base
+    build-depends:     base     >= 4 && < 5
 
                      , byteable
                      , bytestring
@@ -54,7 +54,7 @@ executable mallard
 
     ghc-options:        -Wall
 
-    build-depends:      base
+    build-depends:      base    >= 4 && < 5
 
                       , mallard
 
