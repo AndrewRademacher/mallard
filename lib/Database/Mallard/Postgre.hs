@@ -88,11 +88,14 @@ getAppliedMigrations = runDB $ do
             <*> D.value valueAbsFile
             <*> D.value D.text
             <*> D.value (D.array (D.arrayDimension replicateM (D.arrayValue (MigrationId <$> D.text))))
-            <*> D.value (fmap (throwIfMissing . digestFromByteString) D.bytea) -- TODO Replace this with custom value.
+            <*> D.value valueDigest
             <*> D.value D.text
 
-        throwIfMissing (Just d) = d
-        throwIfMissing Nothing  = throw DigestSizeMismatchException
+valueDigest :: (HashAlgorithm a) => D.Value (Digest a)
+valueDigest = D.custom $ \_ bs ->
+    case digestFromByteString bs of
+        Nothing -> Left "ByteString was incorrect length for selected Digest type."
+        Just v -> Right v
 
 valueAbsFile :: D.Value (Path Abs File)
 valueAbsFile = D.custom $ \_ bs ->
