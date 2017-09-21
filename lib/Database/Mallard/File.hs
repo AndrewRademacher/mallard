@@ -25,14 +25,8 @@ class HasRootDirectory a where
 class HasMigrationFiles a where
     migrationFiles :: Lens' a [Path Abs File]
 
-scanRootDirectoryForFiles
-    :: ( MonadIO m, MonadState s m, MonadThrow m
-        , HasRootDirectory s, HasMigrationFiles s )
-    => m ()
-scanRootDirectoryForFiles = do
-    rootDir <- fmap (^. rootDirectory) get
-    filesAbs <- concat <$> walkDirAccum Nothing (\_ _ c -> return [c]) rootDir
-    modify (& migrationFiles .~ filesAbs)
+scanDirectoryForFiles :: (MonadIO m, MonadThrow m) => Path Abs Dir -> m [Path Abs File]
+scanDirectoryForFiles dir = concat <$> walkDirAccum Nothing (\_ _ c -> return [c]) dir
 
 importMigrations
     :: ( MonadIO m, MonadState s m, MonadThrow m

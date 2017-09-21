@@ -78,11 +78,14 @@ main = do
 
 run :: (MonadIO m, MonadReader AppOptions m, MonadState AppState m, MonadThrow m) => m ()
 run = do
+    --
     appOpts <- ask
     root <- makeAbsolute =<< parseRelDir (appOpts ^. optionsRootDirectory . unpacked)
     modify (\s -> s & rootDirectory .~ root)
-
-    scanRootDirectoryForFiles
+    --
+    files <- scanDirectoryForFiles root
+    modify (\s -> s & migrationFiles .~ files)
+    --
     importMigrations
 
     generateMigrationGraph
