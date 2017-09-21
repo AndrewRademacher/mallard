@@ -7,8 +7,9 @@ module Database.Mallard.Postgre
     ( HasPostgreConnection (..)
     , DigestMismatchException (..)
     , ensureMigratonSchema
-    , ensureApplicationSchema
     , getAppliedMigrations
+    , applyMigration
+    , applyMigrations
     ) where
 
 import           Control.Exception
@@ -21,14 +22,12 @@ import           Data.Byteable
 import           Data.ByteString             (ByteString)
 import qualified Data.ByteString.Char8       as CBS
 import           Data.Foldable
-import           Data.HashMap.Strict         (HashMap)
 import qualified Data.HashMap.Strict         as Map
 import           Data.Int
 import           Data.Monoid
 import           Data.String.Interpolation
 import qualified Data.Text                   as T
 import qualified Data.Text.Encoding          as T
-import           Database.Mallard.Graph
 import           Database.Mallard.Types
 import           Database.Mallard.Validation
 import qualified Hasql.Decoders              as D
@@ -67,17 +66,6 @@ ensureMigratonSchema = do
         runDB $ HT.transaction Serializable Write $ applyMigrationSchemaMigraiton a
         liftIO $ putStrLn $ "Migrator Version: " <> show version
 
-ensureApplicationSchema
-    :: (MonadIO m, MonadState s m, HasPostgreConnection s)
-    => HashMap MigrationId Migration -> MigrationGraph -> m ()
-ensureApplicationSchema mTable mGraph = do
-    appliedMigrationData <- runDB $ getAppliedMigrationData
-    -- mapM_ validateChecksum appliedMigrationData -- Move this to main
-    let unapplied = getUnappliedMigrations mGraph (fmap (\(_, mid, _) -> mid) appliedMigrationData)
-    flip mapM_ unapplied $ \mId -> do
-        runDB $ HT.transaction Serializable Write $ applyMigration mTable mId
-        liftIO $ putStrLn $ "Applied migration: " <> show mId
-
 runDB :: (MonadIO m, MonadState s m, HasPostgreConnection s) => Session a -> m a
 runDB session = do
     pool <- fmap (^. postgreConnection) get
@@ -85,17 +73,6 @@ runDB session = do
     case res of
         Left err    -> error $ show err
         Right value -> return value
-
-getAppliedMigrationData :: Session [(Int64, MigrationId, MigrationDigest)]
-getAppliedMigrationData = query () (statement stmt encoder decoder True)
-    where
-        stmt = "SELECT id, name, checksum FROM mallard.applied_migrations;"
-        encoder = E.unit
-        decoder = D.rowsList ((,,) <$> D.value D.int8
-                                        <*> fmap MigrationId (D.value D.text)
-                                        <*> fmap (throwIfMissing . digestFromByteString) (D.value D.bytea))
-        throwIfMissing (Just d) = d
-        throwIfMissing Nothing  = throw DigestSizeMismatchException
 
 getAppliedMigrations
     :: (MonadIO m, MonadState s m, HasPostgreConnection s)
@@ -123,13 +100,18 @@ valueAbsFile = D.custom $ \_ bs ->
         Left er -> Left (T.pack (show er))
         Right v -> Right v
 
-applyMigration :: HashMap MigrationId Migration -> MigrationId -> Transaction ()
-applyMigration mTable mid =
-    case Map.lookup mid mTable of
-        Nothing -> error "Attempted to apply a migration that doesn't exist."
-        Just m -> do
-            HT.sql (T.encodeUtf8 (m ^. migrationScript))
-            HT.query m (statement stmt encoder decoder True)
+applyMigrations :: (MonadIO m, MonadState s m, HasPostgreConnection s) => MigrationTable -> [MigrationId] -> m ()
+applyMigrations mTable = mapM_ (applyMigration mTable)
+
+applyMigration :: (MonadIO m, MonadState s m, HasPostgreConnection s) => MigrationTable -> MigrationId -> m ()
+applyMigration mTable mid = do
+    runDB $ HT.transaction Serializable Write $
+        case Map.lookup mid mTable of
+            Nothing -> error "Attempted to apply a migration that doesn't exist."
+            Just m -> do
+                HT.sql (T.encodeUtf8 (m ^. migrationScript))
+                HT.query m (statement stmt encoder decoder True)
+    liftIO $ putStrLn $ "Applied migration: " <> show mid
     where
         stmt = "INSERT INTO mallard.applied_migrations (name, file_path, description, requires, checksum, script_text) VALUES ($1, $2, $3, $4, $5, $6)"
         encoder =
