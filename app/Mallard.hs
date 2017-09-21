@@ -88,8 +88,10 @@ run = do
     --
     mTable <- importMigrations root files
     modify (\s -> s & migrationTable .~ mTable)
-
-    generateMigrationGraph
+    --
+    let (mNodeTable, mGraph) = generateMigrationGraph mTable
+    modify (\s -> s & migrationNodeTable .~ mNodeTable
+                    & migrationGraph .~ mGraph)
 
     ensureMigratonSchema
     ensureApplicationSchema
