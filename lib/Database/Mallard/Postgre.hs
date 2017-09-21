@@ -155,7 +155,7 @@ isMigrationVersionZero = do
         Nothing -> return False
         Just _  -> return True
     where
-        stmt = "SELECT table_name FROM information_schema.tables WHERE table_schema = 'migration' AND table_name = 'migrator_version';"
+        stmt = "SELECT table_name FROM information_schema.tables WHERE table_schema = 'mallard' AND table_name = 'migrator_version';"
 
 -- Exceptions
 

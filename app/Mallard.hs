@@ -1,6 +1,7 @@
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TemplateHaskell       #-}
 
 module Main where
@@ -64,11 +65,16 @@ main = do
             <> progDesc "Apply migrations to a database server."
             <> header "migrator - applies PSQL database migrations." )
 
-run :: (MonadIO m, MonadReader AppOptions m, MonadState AppState m, MonadThrow m) => m ()
+parseRelOrAbsDir :: (MonadThrow m, MonadCatch m, MonadIO m) => FilePath -> m (Path Abs Dir)
+parseRelOrAbsDir file = parseAbsDir file `catch` (\(_::PathParseException) -> makeAbsolute =<< parseRelDir file)
+
+run :: (MonadIO m, MonadCatch m, MonadReader AppOptions m, MonadState AppState m, MonadThrow m) => m ()
 run = do
     --
+    ensureMigratonSchema
+    --
     appOpts <- ask
-    root <- makeAbsolute =<< parseRelDir (appOpts ^. optionsRootDirectory . unpacked)
+    root <- parseRelOrAbsDir (appOpts ^. optionsRootDirectory . unpacked)
     --
     files <- scanDirectoryForFiles root
     --
@@ -77,8 +83,6 @@ run = do
     mApplied <- getAppliedMigrations
     --
     let mGraph = fromJust $ mkMigrationGraph mPlanned
-    --
-    ensureMigratonSchema
     --
 
     validateAppliedMigrations mPlanned mApplied
