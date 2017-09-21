@@ -61,6 +61,7 @@ data Test
     = Test
         { _testName        :: TestId
         , _testDescription :: Text
+        , _testScript      :: Text
         }
 
 $(makeClassy ''Test)

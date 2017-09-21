@@ -7,6 +7,7 @@ module Database.Mallard.Parser
     ( ParserException (..)
     , parseMigration
     , parseMigrations
+    , parseTest
     ) where
 
 import           Control.Exception
@@ -23,7 +24,7 @@ import qualified Data.Text.Encoding         as T
 import           Data.Text.Lens
 import           Database.Mallard.Types
 import           Path
-import           Text.Megaparsec            hiding (tab)
+import           Text.Megaparsec            hiding (parseTest, tab)
 import           Text.Megaparsec.ByteString
 import qualified Text.Megaparsec.Lexer      as L
 
@@ -49,9 +50,31 @@ comma = char ','  >> space
 parseMigrations :: Parser [Migration]
 parseMigrations = manyTill (space >> parseMigration) eof
 
+parseTest :: Parser Test
+parseTest = do
+    (name, description) <- parseTestHeader
+    content <- T.pack <$> manyTill anyChar (string "--/")
+    return $ Test
+        { _testName = name
+        , _testDescription = description
+        , _testScript = content
+        }
+
+parseTestHeader :: Parser (TestId, Description)
+parseTestHeader = do
+    fields <- parseHeaderFields "--/ test"
+    case Map.lookup "name" fields of
+        Nothing -> fail "The name field was not provided in the header."
+        Just (ListField _) -> fail "The name field cannot be a list."
+        Just (TextField name) ->
+            case Map.lookup "description" fields of
+                Nothing -> fail "The description field was not provided in the header."
+                Just (ListField _) -> fail "The description field cannot be a list."
+                Just (TextField description) -> return (TestId name, description)
+
 parseMigration :: Parser Migration
 parseMigration = do
-    (name, description, requires) <- parseHeader
+    (name, description, requires) <- parseMigrationHeader
     content <- T.pack <$> manyTill anyChar (string "--/")
     return $ Migration
         { _migrationName = name
@@ -61,9 +84,9 @@ parseMigration = do
         , _migrationScript = content
         }
 
-parseHeader :: Parser (MigrationId, Description, [Requires])
-parseHeader = do
-    fields <- parseHeaderFields
+parseMigrationHeader :: Parser (MigrationId, Description, [Requires])
+parseMigrationHeader = do
+    fields <- parseHeaderFields "--/ migration"
     case Map.lookup "name" fields of
         Nothing -> fail "The name field was not provided in the header."
         Just (ListField _) -> fail "The name field cannot be a list."
@@ -83,8 +106,10 @@ parseFieldValue = parseTextValue <|> parseListValue
         parseTextValue = TextField <$> parseQuotedText
         parseListValue = ListField <$> brackets (parseQuotedText `sepBy` comma)
 
-parseHeaderFields :: Parser (HashMap Text FieldValue)
-parseHeaderFields = Map.fromList <$> between (symbol "--/") (symbol "--|") (field `sepBy` newline)
+type OpeningSymbol = String
+
+parseHeaderFields :: OpeningSymbol -> Parser (HashMap Text FieldValue)
+parseHeaderFields open = Map.fromList <$> between (symbol open) (symbol "--|") (field `sepBy` newline)
     where
         field :: Parser (Text, FieldValue)
         field = do
