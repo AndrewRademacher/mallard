@@ -7,9 +7,9 @@ import           Control.Exception
 import           Control.Lens
 import           Control.Monad.Catch
 import           Control.Monad.Reader
-import           Control.Monad.State
 import           Crypto.Hash
 import qualified Data.ByteString         as BS
+import           Data.HashMap.Strict     (HashMap)
 import qualified Data.HashMap.Strict     as Map
 import qualified Data.Text               as T
 import qualified Data.Text.Encoding      as T
@@ -28,16 +28,11 @@ class HasMigrationFiles a where
 scanDirectoryForFiles :: (MonadIO m, MonadThrow m) => Path Abs Dir -> m [Path Abs File]
 scanDirectoryForFiles dir = concat <$> walkDirAccum Nothing (\_ _ c -> return [c]) dir
 
-importMigrations
-    :: ( MonadIO m, MonadState s m, MonadThrow m
-        , HasRootDirectory s, HasMigrationFiles s, HasMigrationTable s)
-    => m ()
-importMigrations = do
-    root <- fmap (^. rootDirectory) get
-    files <- fmap (^. migrationFiles) get
+importMigrations :: (MonadIO m, MonadThrow m) => Path Abs Dir -> [Path Abs File] -> m (HashMap MigrationId Migration)
+importMigrations root files = do
     migrationNames <- mapM (\file -> return . MigrationId . T.pack . toFilePath =<< setFileExtension "" =<< stripDir root file) files
     migrations <- zipWithM importMigration migrationNames files
-    modify (& migrationTable .~ Map.fromList (fmap (\m -> (m ^. migrationName, m)) migrations))
+    return $ Map.fromList (fmap (\m -> (m ^. migrationName, m)) migrations)
 
 importMigration :: (MonadIO m, MonadThrow m) => MigrationId -> Path Abs File -> m Migration
 importMigration name file = do

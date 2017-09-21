@@ -86,7 +86,8 @@ run = do
     files <- scanDirectoryForFiles root
     modify (\s -> s & migrationFiles .~ files)
     --
-    importMigrations
+    mTable <- importMigrations root files
+    modify (\s -> s & migrationTable .~ mTable)
 
     generateMigrationGraph
 
