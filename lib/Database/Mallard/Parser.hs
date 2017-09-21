@@ -2,17 +2,23 @@
 {-# LANGUAGE QuasiQuotes       #-}
 {-# LANGUAGE TemplateHaskell   #-}
 
-module Database.Mallard.Parser where
+module Database.Mallard.Parser
+    ( ParserException (..)
+    , parseMigration
+    , parseMigrations
+    ) where
 
 import           Control.Exception
 import           Control.Lens               hiding (noneOf)
 import           Control.Monad
+import           Crypto.Hash
 import           Data.HashMap.Strict        (HashMap)
 import qualified Data.HashMap.Strict        as Map
 import qualified Data.List.NonEmpty         as NonEmpty
 import           Data.String.Interpolation
 import           Data.Text                  (Text)
 import qualified Data.Text                  as T
+import qualified Data.Text.Encoding         as T
 import           Data.Text.Lens
 import           Database.Mallard.Types
 import           Path
@@ -22,7 +28,6 @@ import qualified Text.Megaparsec.Lexer      as L
 
 type Description = Text
 type Requires = MigrationId
-type Script = Text
 
 data FieldValue
     = TextField Text
@@ -37,17 +42,23 @@ symbol = L.symbol spaceConsumer
 brackets :: Parser a -> Parser a
 brackets = between (symbol "[") (symbol "]")
 
-quotes :: Parser a -> Parser a
-quotes = between (symbol "\"") (symbol "\"")
-
 comma :: Parser ()
 comma = char ','  >> space
 
-parseMigration :: Parser (MigrationId, Description, [Requires], Script)
+parseMigrations :: Parser [Migration]
+parseMigrations = manyTill (space >> parseMigration) eof
+
+parseMigration :: Parser Migration
 parseMigration = do
     (name, description, requires) <- parseHeader
-    content <- T.pack <$> manyTill anyChar eof
-    return (name, description, requires, content)
+    content <- T.pack <$> manyTill anyChar (string "--/")
+    return $ Migration
+        { _migrationName = name
+        , _migrationDescription = description
+        , _migrationRequires = requires
+        , _migrationChecksum = hash (T.encodeUtf8 content)
+        , _migrationScript = content
+        }
 
 parseHeader :: Parser (MigrationId, Description, [Requires])
 parseHeader = do
@@ -72,7 +83,7 @@ parseFieldValue = parseTextValue <|> parseListValue
         parseListValue = ListField <$> brackets (parseQuotedText `sepBy` comma)
 
 parseHeaderFields :: Parser (HashMap Text FieldValue)
-parseHeaderFields = Map.fromList <$> between (symbol "--|") (symbol "--|") (field `sepBy` newline)
+parseHeaderFields = Map.fromList <$> between (symbol "--/") (symbol "--|") (field `sepBy` newline)
     where
         field :: Parser (Text, FieldValue)
         field = do

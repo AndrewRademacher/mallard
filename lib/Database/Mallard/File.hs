@@ -2,18 +2,16 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 
 module Database.Mallard.File
-    ( importMigrations
+    ( importMigrationDirectory
+    , importMigrationFile
     ) where
 
 import           Control.Exception
 import           Control.Lens
 import           Control.Monad.Catch
 import           Control.Monad.Reader
-import           Crypto.Hash
 import qualified Data.ByteString         as BS
-import           Data.HashMap.Strict     (HashMap)
 import qualified Data.HashMap.Strict     as Map
-import qualified Data.Text.Encoding      as T
 import           Database.Mallard.Parser
 import           Database.Mallard.Types
 import           Path
@@ -23,23 +21,19 @@ import           Text.Megaparsec
 scanDirectoryForFiles :: (MonadIO m, MonadThrow m) => Path Abs Dir -> m [Path Abs File]
 scanDirectoryForFiles dir = concat <$> walkDirAccum Nothing (\_ _ c -> return [c]) dir
 
-importMigrations :: (MonadIO m, MonadThrow m) => Path Abs Dir -> m (HashMap MigrationId Migration)
-importMigrations root = do
+importMigrationDirectory :: (MonadIO m, MonadThrow m) => Path Abs Dir -> m MigrationTable
+importMigrationDirectory root = do
     files <- scanDirectoryForFiles root
-    migrations <- mapM importMigration files
-    return $ Map.fromList (fmap (\m -> (m ^. migrationName, m)) migrations)
+    migrations <- mapM importMigrationFile' files
+    return $ Map.fromList (fmap (\m -> (m ^. migrationName, m)) (concat migrations))
 
-importMigration :: (MonadIO m, MonadThrow m) => Path Abs File -> m Migration
-importMigration file = do
+importMigrationFile :: (MonadIO m, MonadThrow m) => Path Abs File -> m MigrationTable
+importMigrationFile file = Map.fromList . fmap (\m -> (m ^. migrationName, m)) <$> importMigrationFile' file
+
+importMigrationFile' :: (MonadIO m, MonadThrow m) => Path Abs File -> m [Migration]
+importMigrationFile' file = do
     fileContent <- liftIO $ BS.readFile (toFilePath file)
-    let parseResult = runParser parseMigration (toFilePath file) fileContent
+    let parseResult = runParser parseMigrations (toFilePath file) fileContent
     case parseResult of
         Left er -> throw $ ParserException file er
-        Right (name, description, requires, content) ->
-            return $ Migration
-                { _migrationName = name
-                , _migrationDescription = description
-                , _migrationRequires = requires
-                , _migrationChecksum = hash (T.encodeUtf8 content)
-                , _migrationScript = content
-                }
+        Right m -> return m
