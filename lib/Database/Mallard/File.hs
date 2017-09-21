@@ -40,7 +40,6 @@ importMigration name file = do
         Right (description, requires, content) ->
             return $ Migration
                 { _migrationName = name
-                , _migrationFile = file
                 , _migrationDescription = description
                 , _migrationRequires = requires
                 , _migrationChecksum = hash (T.encodeUtf8 content)

@@ -14,7 +14,6 @@ import qualified Data.HashMap.Strict as Map
 import           Data.Int
 import           Data.Text           (Text)
 import           Data.Text.Lens
-import           Path
 
 type MigrationTable = HashMap MigrationId Migration
 
@@ -43,7 +42,6 @@ type MigrationDigest = Digest SHA256
 data Migration
     = Migration
         { _migrationName        :: MigrationId
-        , _migrationFile        :: Path Abs File
         , _migrationDescription :: Text
         , _migrationRequires    :: [MigrationId]
         , _migrationChecksum    :: MigrationDigest
