@@ -95,8 +95,8 @@ run = do
     ensureMigratonSchema
     --
     let unapplied = getUnappliedMigrations mGraph (Map.keys mApplied)
-    -- ensureApplicationSchema mTable mGraph
     applyMigrations mTable unapplied
+    --
 
     -- New application plan.
 
