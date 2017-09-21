@@ -56,9 +56,7 @@ instance Ord MigrationSchemaVersion where
     compare (MigrationVersion _) NotInit              = GT
     compare (MigrationVersion a) (MigrationVersion b) = compare a b
 
-ensureMigratonSchema
-    :: ( MonadIO m, MonadState s m
-        , HasPostgreConnection s, HasMigrationTable s, HasMigrationGraph s) => m ()
+ensureMigratonSchema :: (MonadIO m, MonadState s m, HasPostgreConnection s) => m ()
 ensureMigratonSchema = do
     mversion <- getMigrationSchemaVersion
     let toApply =
