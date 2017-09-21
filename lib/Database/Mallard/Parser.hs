@@ -43,23 +43,27 @@ quotes = between (symbol "\"") (symbol "\"")
 comma :: Parser ()
 comma = char ','  >> space
 
-parseMigration :: Parser (Description, [Requires], Script)
+parseMigration :: Parser (MigrationId, Description, [Requires], Script)
 parseMigration = do
-    (description, requires) <- parseHeader
+    (name, description, requires) <- parseHeader
     content <- T.pack <$> manyTill anyChar eof
-    return (description, requires, content)
+    return (name, description, requires, content)
 
-parseHeader :: Parser (Description, [Requires])
+parseHeader :: Parser (MigrationId, Description, [Requires])
 parseHeader = do
     fields <- parseHeaderFields
-    case Map.lookup "description" fields of
-        Nothing -> fail "The description field was not provided in the header."
-        Just (ListField _) -> fail "The description field cannot be a list."
-        Just (TextField description) ->
-            case Map.lookup "requires" fields of
-                Nothing                   -> return (description, [])
-                Just (TextField requires) -> return (description, [MigrationId requires])
-                Just (ListField requires) -> return (description, fmap MigrationId requires)
+    case Map.lookup "name" fields of
+        Nothing -> fail "The name field was not provided in the header."
+        Just (ListField _) -> fail "The name field cannot be a list."
+        Just (TextField name) ->
+            case Map.lookup "description" fields of
+                Nothing -> fail "The description field was not provided in the header."
+                Just (ListField _) -> fail "The description field cannot be a list."
+                Just (TextField description) ->
+                    case Map.lookup "requires" fields of
+                        Nothing                   -> return (MigrationId name, description, [])
+                        Just (TextField requires) -> return (MigrationId name, description, [MigrationId requires])
+                        Just (ListField requires) -> return (MigrationId name, description, fmap MigrationId requires)
 
 parseFieldValue :: Parser FieldValue
 parseFieldValue = parseTextValue <|> parseListValue

@@ -13,7 +13,6 @@ import           Crypto.Hash
 import qualified Data.ByteString         as BS
 import           Data.HashMap.Strict     (HashMap)
 import qualified Data.HashMap.Strict     as Map
-import qualified Data.Text               as T
 import qualified Data.Text.Encoding      as T
 import           Database.Mallard.Parser
 import           Database.Mallard.Types
@@ -27,17 +26,16 @@ scanDirectoryForFiles dir = concat <$> walkDirAccum Nothing (\_ _ c -> return [c
 importMigrations :: (MonadIO m, MonadThrow m) => Path Abs Dir -> m (HashMap MigrationId Migration)
 importMigrations root = do
     files <- scanDirectoryForFiles root
-    migrationNames <- mapM (\file -> return . MigrationId . T.pack . toFilePath =<< setFileExtension "" =<< stripDir root file) files
-    migrations <- zipWithM importMigration migrationNames files
+    migrations <- mapM importMigration files
     return $ Map.fromList (fmap (\m -> (m ^. migrationName, m)) migrations)
 
-importMigration :: (MonadIO m, MonadThrow m) => MigrationId -> Path Abs File -> m Migration
-importMigration name file = do
+importMigration :: (MonadIO m, MonadThrow m) => Path Abs File -> m Migration
+importMigration file = do
     fileContent <- liftIO $ BS.readFile (toFilePath file)
     let parseResult = runParser parseMigration (toFilePath file) fileContent
     case parseResult of
         Left er -> throw $ ParserException file er
-        Right (description, requires, content) ->
+        Right (name, description, requires, content) ->
             return $ Migration
                 { _migrationName = name
                 , _migrationDescription = description
