@@ -1,0 +1,7 @@
+flags: {}
+packages:
+- '.'
+extra-deps:
+- Interpolation-0.3.0
+- hasql-optparse-applicative-0.2.1
+resolver: lts-9.5
