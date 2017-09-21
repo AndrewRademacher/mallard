@@ -76,9 +76,7 @@ run = do
     appOpts <- ask
     root <- parseRelOrAbsDir (appOpts ^. optionsRootDirectory . unpacked)
     --
-    files <- scanDirectoryForFiles root
-    --
-    mPlanned <- importMigrations root files
+    mPlanned <- importMigrations root
     --
     mApplied <- getAppliedMigrations
     --

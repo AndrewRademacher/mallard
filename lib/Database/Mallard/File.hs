@@ -2,8 +2,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 
 module Database.Mallard.File
-    ( scanDirectoryForFiles
-    , importMigrations
+    ( importMigrations
     ) where
 
 import           Control.Exception
@@ -25,8 +24,9 @@ import           Text.Megaparsec
 scanDirectoryForFiles :: (MonadIO m, MonadThrow m) => Path Abs Dir -> m [Path Abs File]
 scanDirectoryForFiles dir = concat <$> walkDirAccum Nothing (\_ _ c -> return [c]) dir
 
-importMigrations :: (MonadIO m, MonadThrow m) => Path Abs Dir -> [Path Abs File] -> m (HashMap MigrationId Migration)
-importMigrations root files = do
+importMigrations :: (MonadIO m, MonadThrow m) => Path Abs Dir -> m (HashMap MigrationId Migration)
+importMigrations root = do
+    files <- scanDirectoryForFiles root
     migrationNames <- mapM (\file -> return . MigrationId . T.pack . toFilePath =<< setFileExtension "" =<< stripDir root file) files
     migrations <- zipWithM importMigration migrationNames files
     return $ Map.fromList (fmap (\m -> (m ^. migrationName, m)) migrations)
