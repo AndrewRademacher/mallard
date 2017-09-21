@@ -67,14 +67,10 @@ ensureMigratonSchema = do
         runDB $ HT.transaction Serializable Write $ applyMigrationSchemaMigraiton a
         liftIO $ putStrLn $ "Migrator Version: " <> show version
 
--- ensureApplicationSchema
---     :: ( MonadIO m, MonadState s m
---         , HasPostgreConnection s, HasMigrationTable s, HasMigrationNodeTable s, HasMigrationGraph s) => m ()
 ensureApplicationSchema
     :: (MonadIO m, MonadState s m, HasPostgreConnection s)
     => HashMap MigrationId Migration -> MigrationGraph -> m ()
 ensureApplicationSchema mTable mGraph = do
-    -- mTable <- fmap (^. migrationTable) get
     appliedMigrationData <- runDB $ getAppliedMigrationData
     -- mapM_ validateChecksum appliedMigrationData -- Move this to main
     let unapplied = getUnappliedMigrations mGraph (fmap (\(_, mid, _) -> mid) appliedMigrationData)
