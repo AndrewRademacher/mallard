@@ -55,6 +55,7 @@ instance HasRootDirectory AppEnvironment where rootDirectory = environmentRootDi
 data AppState
     = AppState
         { _statePostgreConnection  :: Pool.Pool
+        , _stateRootDirectory      :: Path Abs Dir
         , _stateMigrationFiles     :: [Path Abs File]
         , _stateMigrationTable     :: HashMap MigrationId Migration
         , _stateMigrationNodeTable :: HashMap MigrationId G.Node
@@ -64,6 +65,7 @@ data AppState
 $(makeClassy ''AppState)
 
 instance HasPostgreConnection AppState where postgreConnection = statePostgreConnection
+instance HasRootDirectory AppState where rootDirectory = stateRootDirectory
 instance HasMigrationFiles AppState where migrationFiles = stateMigrationFiles
 instance HasMigrationTable AppState where migrationTable = stateMigrationTable
 instance HasMigrationNodeTable AppState where migrationNodeTable = stateMigrationNodeTable
@@ -76,7 +78,7 @@ main = do
     let env = AppEnvironment appOpts root
 
     pool <- Pool.acquire (1, 30, appOpts ^. optionsPostgreSettings)
-    let initState = AppState pool [] Map.empty Map.empty G.empty
+    let initState = AppState pool $(mkAbsDir "/doesnt/exist") [] Map.empty Map.empty G.empty
 
     _ <- (flip runReaderT env . flip runStateT initState) run
             `catchAll` (\e -> putStrLn (displayException e) >> return ((), initState))
@@ -90,6 +92,10 @@ main = do
 
 run :: (MonadIO m, MonadReader AppEnvironment m, MonadState AppState m, MonadThrow m) => m ()
 run = do
+    appOpts <- fmap (^. environmentAppOptions) ask
+    root <- makeAbsolute =<< parseRelDir (appOpts ^. optionsRootDirectory . unpacked)
+    modify (\s -> s & rootDirectory .~ root)
+
     scanRootDirectoryForFiles
     importMigrations
 
