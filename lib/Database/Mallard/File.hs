@@ -1,7 +1,12 @@
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 
-module Database.Mallard.File where
+module Database.Mallard.File
+    ( HasRootDirectory (..)
+    , HasMigrationFiles (..)
+    , scanDirectoryForFiles
+    , importMigrations
+    ) where
 
 import           Control.Exception
 import           Control.Lens
