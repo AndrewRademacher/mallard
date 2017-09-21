@@ -41,17 +41,6 @@ appOptionsParser = AppOptions
     <$> argument text (metavar "ROOT")
     <*> connectionSettings Nothing
 
-data AppEnvironment
-    = AppEnvironment
-        { _environmentAppOptions    :: AppOptions
-        , _environmentRootDirectory :: Path Abs Dir
-        }
-
-$(makeClassy ''AppEnvironment)
-
-instance HasAppOptions AppEnvironment where appOptions = environmentAppOptions
-instance HasRootDirectory AppEnvironment where rootDirectory = environmentRootDirectory
-
 data AppState
     = AppState
         { _statePostgreConnection  :: Pool.Pool
@@ -74,13 +63,10 @@ instance HasMigrationGraph AppState where migrationGraph = stateMigrationGraph
 main :: IO ()
 main = do
     appOpts <- execParser opts
-    root <- makeAbsolute =<< parseRelDir (appOpts ^. optionsRootDirectory . unpacked)
-    let env = AppEnvironment appOpts root
-
     pool <- Pool.acquire (1, 30, appOpts ^. optionsPostgreSettings)
     let initState = AppState pool $(mkAbsDir "/doesnt/exist") [] Map.empty Map.empty G.empty
 
-    _ <- (flip runReaderT env . flip runStateT initState) run
+    _ <- (flip runReaderT appOpts . flip runStateT initState) run
             `catchAll` (\e -> putStrLn (displayException e) >> return ((), initState))
 
     Pool.release pool
@@ -90,9 +76,9 @@ main = do
             <> progDesc "Apply migrations to a database server."
             <> header "migrator - applies PSQL database migrations." )
 
-run :: (MonadIO m, MonadReader AppEnvironment m, MonadState AppState m, MonadThrow m) => m ()
+run :: (MonadIO m, MonadReader AppOptions m, MonadState AppState m, MonadThrow m) => m ()
 run = do
-    appOpts <- fmap (^. environmentAppOptions) ask
+    appOpts <- ask
     root <- makeAbsolute =<< parseRelDir (appOpts ^. optionsRootDirectory . unpacked)
     modify (\s -> s & rootDirectory .~ root)
 

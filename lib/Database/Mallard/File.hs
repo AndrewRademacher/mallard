@@ -26,20 +26,20 @@ class HasMigrationFiles a where
     migrationFiles :: Lens' a [Path Abs File]
 
 scanRootDirectoryForFiles
-    :: ( MonadIO m, MonadReader e m, MonadState s m, MonadThrow m
-        , HasRootDirectory e, HasMigrationFiles s )
+    :: ( MonadIO m, MonadState s m, MonadThrow m
+        , HasRootDirectory s, HasMigrationFiles s )
     => m ()
 scanRootDirectoryForFiles = do
-    env <- ask
-    filesAbs <- concat <$> walkDirAccum Nothing (\_ _ c -> return [c]) (env ^. rootDirectory)
+    rootDir <- fmap (^. rootDirectory) get
+    filesAbs <- concat <$> walkDirAccum Nothing (\_ _ c -> return [c]) rootDir
     modify (& migrationFiles .~ filesAbs)
 
 importMigrations
-    :: ( MonadIO m, MonadReader e m, MonadState s m, MonadThrow m
-        , HasRootDirectory e, HasMigrationFiles s, HasMigrationTable s)
+    :: ( MonadIO m, MonadState s m, MonadThrow m
+        , HasRootDirectory s, HasMigrationFiles s, HasMigrationTable s)
     => m ()
 importMigrations = do
-    root <- fmap (^. rootDirectory) ask
+    root <- fmap (^. rootDirectory) get
     files <- fmap (^. migrationFiles) get
     migrationNames <- mapM (\file -> return . MigrationId . T.pack . toFilePath =<< setFileExtension "" =<< stripDir root file) files
     migrations <- zipWithM importMigration migrationNames files
