@@ -103,8 +103,10 @@ getAppliedMigrationData = query () (statement stmt encoder decoder True)
 
 getAppliedMigrations
     :: (MonadIO m, MonadState s m, HasPostgreConnection s)
-    => m [Migration]
-getAppliedMigrations = runDB $ query () (statement stmt encoder decoder True)
+    => m MigrationTable
+getAppliedMigrations = runDB $ do
+    lst <- query () (statement stmt encoder decoder True)
+    return $ Map.fromList $ fmap (\m -> (m ^. migrationName, m)) lst
     where
         stmt = "SELECT name, file_path, description, requires, checksum, script_text FROM mallard.applied_migrations;"
         encoder = E.unit

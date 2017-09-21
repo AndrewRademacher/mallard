@@ -40,11 +40,12 @@ appOptionsParser = AppOptions
 
 data AppState
     = AppState
-        { _statePostgreConnection :: Pool.Pool
-        , _stateRootDirectory     :: Path Abs Dir
-        , _stateMigrationFiles    :: [Path Abs File]
-        , _stateMigrationTable    :: MigrationTable
-        , _stateMigrationGraph    :: MigrationGraph
+        { _statePostgreConnection     :: Pool.Pool
+        , _stateRootDirectory         :: Path Abs Dir
+        , _stateMigrationFiles        :: [Path Abs File]
+        , _statePlannedMigrationTable :: MigrationTable
+        , _stateAppliedMigrationTable :: MigrationTable
+        , _stateMigrationGraph        :: MigrationGraph
         }
 
 $(makeClassy ''AppState)
@@ -52,14 +53,15 @@ $(makeClassy ''AppState)
 instance HasPostgreConnection AppState where postgreConnection = statePostgreConnection
 instance HasRootDirectory AppState where rootDirectory = stateRootDirectory
 instance HasMigrationFiles AppState where migrationFiles = stateMigrationFiles
-instance HasMigrationTable AppState where migrationTable = stateMigrationTable
+instance HasPlannedMigrationTable AppState where plannedMigrationTable = statePlannedMigrationTable
+instance HasAppliedMigrationTable AppState where appliedMigrationTable = stateAppliedMigrationTable
 instance HasMigrationGraph AppState where migrationGraph = stateMigrationGraph
 
 main :: IO ()
 main = do
     appOpts <- execParser opts
     pool <- Pool.acquire (1, 30, appOpts ^. optionsPostgreSettings)
-    let initState = AppState pool $(mkAbsDir "/doesnt/exist") [] Map.empty emptyMigrationGraph
+    let initState = AppState pool $(mkAbsDir "/doesnt/exist") [] Map.empty Map.empty emptyMigrationGraph
 
     _ <- (flip runReaderT appOpts . flip runStateT initState) run
             `catchAll` (\e -> putStrLn (displayException e) >> return ((), initState))
@@ -82,7 +84,10 @@ run = do
     modify (\s -> s & migrationFiles .~ files)
     --
     mTable <- importMigrations root files
-    modify (\s -> s & migrationTable .~ mTable)
+    modify (\s -> s & plannedMigrationTable .~ mTable)
+    --
+    mApplied <- getAppliedMigrations
+    modify (\s -> s & appliedMigrationTable .~ mApplied)
     --
     let mGraph = mkMigrationGraph mTable
     modify (\s -> s & migrationGraph .~ mGraph)

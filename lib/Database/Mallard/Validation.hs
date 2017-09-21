@@ -19,10 +19,10 @@ import           Database.Mallard.Types
 
 validateChecksum
     :: ( MonadState s m
-        , HasMigrationTable s )
+        , HasPlannedMigrationTable s )
     => (Int64, MigrationId, MigrationDigest) -> m ()
 validateChecksum (_, mid, digest) = do
-    mTable <- fmap (^. migrationTable) get
+    mTable <- fmap (^. plannedMigrationTable) get
     case Map.lookup mid mTable of
         Nothing -> throw $ AppliedMigrationMissingException mid
         Just mig ->
