@@ -2,6 +2,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE QuasiQuotes           #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
 
 module Database.Mallard.Postgre
     ( HasPostgreConnection (..)
@@ -10,6 +11,8 @@ module Database.Mallard.Postgre
     , getAppliedMigrations
     , applyMigration
     , applyMigrations
+    , runTests
+    , runTest
     ) where
 
 import           Control.Exception
@@ -111,6 +114,14 @@ applyMigration m = do
             contramap _migrationScript (E.value E.text)
         decoder = D.unit
 
+runTests :: (MonadIO m, MonadState s m, HasPostgreConnection s) => [Test] -> m ()
+runTests = mapM_ runTest
+
+runTest :: (MonadIO m, MonadState s m, HasPostgreConnection s) => Test -> m ()
+runTest t = do
+    runDB $ HT.transaction Serializable Write $ do
+        HT.sql (T.encodeUtf8 (t ^. testScript))
+        HT.condemn
 
 applyMigrationSchemaMigraiton :: (Int64, ByteString) -> Transaction ()
 applyMigrationSchemaMigraiton (version, script) = do

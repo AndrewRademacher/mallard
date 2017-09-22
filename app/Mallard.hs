@@ -30,6 +30,7 @@ data AppOptions
     = AppOptions
         { _optionsRootDirectory   :: Text
         , _optionsPostgreSettings :: Sql.Settings
+        , _optionsRunTests        :: Bool
         }
     deriving (Show)
 
@@ -39,6 +40,7 @@ appOptionsParser :: Parser AppOptions
 appOptionsParser = AppOptions
     <$> argument text (metavar "ROOT")
     <*> connectionSettings Nothing
+    <*> flag False True (long "test" <> short 't' <> help "Run tests after migration.")
 
 data AppState
     = AppState
@@ -90,3 +92,5 @@ run = do
     toApply <- inflateMigrationIds mPlanned unapplied
     applyMigrations toApply
     --
+    when (appOpts ^. optionsRunTests) $
+        runTests (Map.elems mTests)
