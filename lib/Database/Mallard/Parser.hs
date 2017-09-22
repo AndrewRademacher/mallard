@@ -5,13 +5,13 @@
 
 module Database.Mallard.Parser
     ( ParserException (..)
+    , Action (..)
+    , parseActions
     , parseMigration
-    , parseMigrations
     , parseTest
     ) where
 
-import           Control.Exception
-import           Control.Lens               hiding (noneOf)
+import           Control.Exception          hiding (try)
 import           Control.Monad
 import           Crypto.Hash
 import           Data.HashMap.Strict        (HashMap)
@@ -21,12 +21,15 @@ import           Data.String.Interpolation
 import           Data.Text                  (Text)
 import qualified Data.Text                  as T
 import qualified Data.Text.Encoding         as T
-import           Data.Text.Lens
 import           Database.Mallard.Types
 import           Path
 import           Text.Megaparsec            hiding (parseTest, tab)
 import           Text.Megaparsec.ByteString
 import qualified Text.Megaparsec.Lexer      as L
+
+data Action
+    = ActionMigration Migration
+    | ActionTest Test
 
 type Description = Text
 type Requires = MigrationId
@@ -35,25 +38,63 @@ data FieldValue
     = TextField Text
     | ListField [Text]
 
+-- Lexer
+
 spaceConsumer :: Parser ()
-spaceConsumer = L.space (void spaceChar) (L.skipLineComment "#") (L.skipBlockComment "##" "##")
+spaceConsumer = L.space space' (L.skipLineComment "@") (L.skipBlockComment "@@" "@@")
+    where
+        space' = void (try spaceChar <|> char '-')
 
 symbol :: String -> Parser String
 symbol = L.symbol spaceConsumer
 
+symbol' :: String -> Parser String
+symbol' = L.symbol' spaceConsumer
+
 brackets :: Parser a -> Parser a
 brackets = between (symbol "[") (symbol "]")
 
-comma :: Parser ()
-comma = char ','  >> space
+comma :: Parser String
+comma = symbol ","
 
-parseMigrations :: Parser [Migration]
-parseMigrations = manyTill (space >> parseMigration) eof
+colon :: Parser String
+colon = symbol ":"
+
+semiColon :: Parser String
+semiColon = symbol ";"
+
+migrationS :: Parser String
+migrationS = symbol' "migration"
+
+testS :: Parser String
+testS = symbol' "test"
+
+sbang :: Parser String
+sbang = symbol "#!"
+
+sbangOrEof :: Parser ()
+sbangOrEof = try (void sbang) <|> eof
+
+atom :: Parser String
+atom = do
+    val <- many alphaNumChar
+    spaceConsumer
+    return val
+
+-- Parser
+
+parseActions :: Parser [Action]
+parseActions = spaceConsumer >> sbang >> manyTill parseAction eof
+    where
+        parseAction =
+            try (ActionMigration <$> parseMigration)
+            <|> (ActionTest <$> parseTest)
+
 
 parseTest :: Parser Test
 parseTest = do
     (name, description) <- parseTestHeader
-    content <- T.pack <$> manyTill anyChar (string "--/")
+    content <- T.pack <$> manyTill anyChar sbangOrEof
     return $ Test
         { _testName = name
         , _testDescription = description
@@ -62,7 +103,9 @@ parseTest = do
 
 parseTestHeader :: Parser (TestId, Description)
 parseTestHeader = do
-    fields <- parseHeaderFields "--/ test"
+    testS
+    fields <- parseHeaderFields
+    semiColon
     case Map.lookup "name" fields of
         Nothing -> fail "The name field was not provided in the header."
         Just (ListField _) -> fail "The name field cannot be a list."
@@ -75,7 +118,7 @@ parseTestHeader = do
 parseMigration :: Parser Migration
 parseMigration = do
     (name, description, requires) <- parseMigrationHeader
-    content <- T.pack <$> manyTill anyChar (string "--/")
+    content <- T.pack <$> manyTill anyChar sbangOrEof
     return $ Migration
         { _migrationName = name
         , _migrationDescription = description
@@ -86,7 +129,9 @@ parseMigration = do
 
 parseMigrationHeader :: Parser (MigrationId, Description, [Requires])
 parseMigrationHeader = do
-    fields <- parseHeaderFields "--/ migration"
+    migrationS
+    fields <- parseHeaderFields
+    semiColon
     case Map.lookup "name" fields of
         Nothing -> fail "The name field was not provided in the header."
         Just (ListField _) -> fail "The name field cannot be a list."
@@ -106,27 +151,19 @@ parseFieldValue = parseTextValue <|> parseListValue
         parseTextValue = TextField <$> parseQuotedText
         parseListValue = ListField <$> brackets (parseQuotedText `sepBy` comma)
 
-type OpeningSymbol = String
-
-parseHeaderFields :: OpeningSymbol -> Parser (HashMap Text FieldValue)
-parseHeaderFields open = Map.fromList <$> between (symbol open) (symbol "--|") (field `sepBy` newline)
+parseHeaderFields :: Parser (HashMap Text FieldValue)
+parseHeaderFields = Map.fromList <$> field `sepBy` comma
     where
         field :: Parser (Text, FieldValue)
         field = do
-            string "-- "
-            name <- many (noneOf (" :"::String))
-            space
-            char ':'
-            space
+            name <- atom
+            colon
             value <- parseFieldValue
             return (T.pack name, value)
 
 parseQuotedText :: Parser Text
-parseQuotedText = do
-    char '"'
-    val <- many (noneOf ("\""::String))
-    char '"'
-    return $ val ^. packed
+parseQuotedText = T.pack <$> between (symbol "\"") (symbol "\"") (many (noneOf ("\""::String)))
+
 
 -- Exceptions
 

@@ -1,7 +1,4 @@
---/ migration
--- name: "schema"
--- description: "Construct primary schema."
--- requires: []
---|
+-- #!migration
+-- name: "schema",
+-- description: "Construct primary schema.";
 CREATE SCHEMA contact;
---/

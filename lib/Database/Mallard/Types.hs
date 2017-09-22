@@ -37,12 +37,6 @@ newtype MigrationId = MigrationId { unMigrationId :: Text }
 instance Show MigrationId where
     show (MigrationId txt) = txt ^. unpacked
 
-newtype TestId = TestId { unTestId :: Text }
-    deriving (Eq, Ord, Hashable)
-
-instance Show TestId where
-    show (TestId txt) = txt ^. unpacked
-
 type MigrationDigest = Digest SHA256
 
 data Migration
@@ -56,6 +50,14 @@ data Migration
     deriving (Show)
 
 $(makeClassy ''Migration)
+
+type TestTable = HashMap TestId Test
+
+newtype TestId = TestId { unTestId :: Text }
+    deriving (Eq, Ord, Hashable)
+
+instance Show TestId where
+    show (TestId txt) = txt ^. unpacked
 
 data Test
     = Test

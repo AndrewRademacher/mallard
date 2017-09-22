@@ -1,8 +1,7 @@
---/ migration
--- name: "tables/person"
--- description: "The root person table."
--- requires: ["schema"]
---|
+-- #!migration
+-- name: "tables/person",
+-- description: "The root person table.",
+-- requires: ["schema"];
 SET search_path TO contact;
 
 CREATE TABLE person(
@@ -13,4 +12,3 @@ CREATE TABLE person(
 
     PRIMARY KEY (id)
 );
---/
