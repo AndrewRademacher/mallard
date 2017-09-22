@@ -65,7 +65,7 @@ main = do
         opts = info (appOptionsParser <**> helper)
             ( fullDesc
             <> progDesc "Apply migrations to a database server."
-            <> header "migrator - applies PSQL database migrations." )
+            <> header "mallard - applies SQL database migrations." )
 
 parseRelOrAbsDir :: (MonadThrow m, MonadCatch m, MonadIO m) => FilePath -> m (Path Abs Dir)
 parseRelOrAbsDir file = parseAbsDir file `catch` (\(_::PathParseException) -> makeAbsolute =<< parseRelDir file)
