@@ -1,4 +1,4 @@
-# Mallard
+# [Mallard](https://en.wikipedia.org/wiki/Mallard)
 
 No frills migration for relational databases. Usable as either an application or library.
 
