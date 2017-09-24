@@ -1,5 +1,5 @@
 name:               mallard
-version:            0.6.1.0
+version:            0.6.1.1
 synopsis:           Database migration and testing as a library.
 description:        Please see README.md
 homepage:           https://github.com/AndrewRademacher/mallard

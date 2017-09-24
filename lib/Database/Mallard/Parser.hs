@@ -24,7 +24,7 @@ import qualified Data.Text.Encoding         as T
 import           Data.Void
 import           Database.Mallard.Types
 import           Path
-import           Text.Megaparsec            hiding (parseTest, tab)
+import           Text.Megaparsec            hiding (parseTest)
 import           Text.Megaparsec.Char       hiding (tab)
 import qualified Text.Megaparsec.Char.Lexer as L
 
