@@ -10,9 +10,9 @@ import           Control.Exception
 import           Control.Lens
 import           Control.Monad.Catch
 import           Control.Monad.Reader
-import qualified Data.ByteString         as BS
 import           Data.Foldable
 import qualified Data.HashMap.Strict     as Map
+import qualified Data.Text.IO            as T
 import           Database.Mallard.Parser
 import           Database.Mallard.Types
 import           Path
@@ -39,7 +39,7 @@ sortActions actions = foldl' sortFn (Map.empty, Map.empty) actions
 
 importFile' :: (MonadIO m, MonadThrow m) => Path Abs File -> m [Action]
 importFile' file = do
-    fileContent <- liftIO $ BS.readFile (toFilePath file)
+    fileContent <- liftIO $ T.readFile (toFilePath file)
     let parseResult = runParser parseActions (toFilePath file) fileContent
     case parseResult of
         Left er -> throw $ ParserException file er

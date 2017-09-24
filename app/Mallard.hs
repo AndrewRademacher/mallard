@@ -20,7 +20,7 @@ import           Database.Mallard
 import qualified Hasql.Connection           as Sql
 import           Hasql.Options.Applicative
 import qualified Hasql.Pool                 as Pool
-import           Options.Applicative        hiding (Parser, runParser)
+import           Options.Applicative        hiding (Parser)
 import           Options.Applicative
 import           Options.Applicative.Text
 import           Path
@@ -68,7 +68,7 @@ main = do
             <> header "mallard - applies SQL database migrations." )
 
 parseRelOrAbsDir :: (MonadThrow m, MonadCatch m, MonadIO m) => FilePath -> m (Path Abs Dir)
-parseRelOrAbsDir file = parseAbsDir file `catch` (\(_::PathParseException) -> makeAbsolute =<< parseRelDir file)
+parseRelOrAbsDir file = parseAbsDir file `catch` (\(_::PathException) -> makeAbsolute =<< parseRelDir file)
 
 run :: (MonadIO m, MonadCatch m, MonadReader AppOptions m, MonadState AppState m, MonadThrow m) => m ()
 run = do

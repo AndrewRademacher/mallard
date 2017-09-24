@@ -1,5 +1,5 @@
 name:               mallard
-version:            0.6.0.4
+version:            0.6.1.0
 synopsis:           Database migration and testing as a library.
 description:        Please see README.md
 homepage:           https://github.com/AndrewRademacher/mallard
@@ -44,7 +44,7 @@ library
                      , hasql-transaction
                      , Interpolation
                      , lens
-                     , megaparsec   <6
+                     , megaparsec   >= 6 && < 7
                      , mtl
                      , path
                      , path-io

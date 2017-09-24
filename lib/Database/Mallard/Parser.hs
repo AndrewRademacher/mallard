@@ -21,11 +21,12 @@ import           Data.String.Interpolation
 import           Data.Text                  (Text)
 import qualified Data.Text                  as T
 import qualified Data.Text.Encoding         as T
+import           Data.Void
 import           Database.Mallard.Types
 import           Path
 import           Text.Megaparsec            hiding (parseTest, tab)
-import           Text.Megaparsec.ByteString
-import qualified Text.Megaparsec.Lexer      as L
+import           Text.Megaparsec.Char       hiding (tab)
+import qualified Text.Megaparsec.Char.Lexer as L
 
 data Action
     = ActionMigration Migration
@@ -38,6 +39,8 @@ data FieldValue
     = TextField Text
     | ListField [Text]
 
+type Parser = Parsec Void Text
+
 -- Lexer
 
 spaceConsumer :: Parser ()
@@ -45,31 +48,31 @@ spaceConsumer = L.space space' (L.skipLineComment "@") (L.skipBlockComment "@@" 
     where
         space' = void (try spaceChar <|> char '-')
 
-symbol :: String -> Parser String
+symbol :: Text -> Parser Text
 symbol = L.symbol spaceConsumer
 
-symbol' :: String -> Parser String
+symbol' :: Text -> Parser Text
 symbol' = L.symbol' spaceConsumer
 
 brackets :: Parser a -> Parser a
 brackets = between (symbol "[") (symbol "]")
 
-comma :: Parser String
+comma :: Parser Text
 comma = symbol ","
 
-colon :: Parser String
+colon :: Parser Text
 colon = symbol ":"
 
-semiColon :: Parser String
+semiColon :: Parser Text
 semiColon = symbol ";"
 
-migrationS :: Parser String
+migrationS :: Parser Text
 migrationS = symbol' "migration"
 
-testS :: Parser String
+testS :: Parser Text
 testS = symbol' "test"
 
-sbang :: Parser String
+sbang :: Parser Text
 sbang = symbol "#!"
 
 sbangOrEof :: Parser ()
@@ -170,7 +173,7 @@ parseQuotedText = T.pack <$> between (symbol "\"") (symbol "\"") (many (noneOf (
 data ParserException
     = ParserException
         { _peFile  :: (Path Abs File)
-        , _peError :: ParseError Char Dec
+        , _peError :: ParseError Char Void
         }
     deriving (Show)
 
@@ -180,6 +183,5 @@ instance Exception ParserException where
 
         $tab$Line: $:sourceLine (NonEmpty.head (errorPos (_peError e)))$
         $tab$Column: $:sourceColumn (NonEmpty.head (errorPos (_peError e)))$
-        $tab$Expected: $:errorExpected (_peError e)$
-        $tab$Occurred: $:errorUnexpected (_peError e)$
+        $tab$Item: $:_peError e$
     |]
