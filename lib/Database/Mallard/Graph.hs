@@ -16,6 +16,7 @@ import qualified Data.Graph.Inductive.Query.DFS    as G
 import           Data.HashMap.Strict               (HashMap)
 import qualified Data.HashMap.Strict               as Map
 import qualified Data.HashSet                      as Set
+import           Data.Monoid
 import           Database.Mallard.Types
 
 data MigrationGraph
@@ -36,7 +37,7 @@ mkMigrationGraph mTable =
         nodeLookupMap = Map.fromList $ fmap (\(a, b) -> (b, a)) nodeAssignment
         lookupNode mName =
             case Map.lookup mName nodeLookupMap of
-                Nothing -> error "This migration requires a migration that doesn't exist. (Non recoverable, contact andrewrademacher@icloud.com)"
+                Nothing -> error $ "This migration requires \"" <> show mName <> "\" and it does not exist."
                 Just n -> n
         replaceRequires m = fmap lookupNode (m ^. migrationRequires)
         graph = G.grev
