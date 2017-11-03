@@ -1,9 +1,4 @@
 flags: {}
 packages:
 - '.'
-- '../hasql-optparse-applicative'
-extra-deps:
-- Interpolation-0.3.0
-# - hasql-optparse-applicative-0.2.1
-# resolver: lts-9.5
-resolver: nightly-2017-09-20
+resolver: nightly-2017-11-03
