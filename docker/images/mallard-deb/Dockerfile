@@ -1,7 +1,11 @@
 FROM ubuntu:16.04
 
+ENV DEBFULLNAME="Andrew Rademacher"
+ENV DEBEMAIL="andrewrademacher@icloud.com"
+
 RUN apt-get update
-RUN apt-get install wget libpq-dev -y
+RUN apt-get install wget libpq-dev ruby ruby-dev rubygems build-essential -y
+RUN gem install --no-ri --no-rdoc fpm
 
 WORKDIR root
 
@@ -19,3 +23,9 @@ RUN stack build --only-dependencies
 # Copy source materials and build.
 COPY . /root/
 RUN stack build
+
+RUN mkdir -p /tmp/installdir/usr/local/bin
+RUN cp $(stack exec -- which mallard) /tmp/installdir/usr/local/bin/mallard
+RUN fpm -s dir -t deb -n mallard -v 0.6.1.1 -C /tmp/installdir \
+        -d libpq5 \
+        usr/local/bin/mallard
