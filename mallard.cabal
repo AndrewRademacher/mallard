@@ -75,3 +75,21 @@ executable mallard
                       , path-io
                       , text
                       , unordered-containers
+
+test-suite test-mallard
+    type:               exitcode-stdio-1.0
+    main-is:            Test.hs
+    hs-source-dirs:     test
+    default-language:   Haskell2010
+
+    ghc-options:        -Wall
+
+    other-modules:      Test.Integration
+
+    build-depends:      base            ==4.*
+
+                      , mallard
+
+                      , tasty
+                      , tasty-quickcheck
+                      , tasty-hunit
