@@ -3,6 +3,8 @@
 {-# LANGUAGE QuasiQuotes       #-}
 {-# LANGUAGE TemplateHaskell   #-}
 
+{-# OPTIONS_GHC -fno-warn-unused-do-bind #-}
+
 module Database.Mallard.Parser
     ( ParserException (..)
     , Action (..)
