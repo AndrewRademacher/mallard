@@ -124,13 +124,20 @@ parseMigration :: Parser Migration
 parseMigration = do
     (name, description, requires) <- parseMigrationHeader
     content <- T.pack <$> manyTill anyChar sbangOrEof
+    let content' = T.dropWhileEnd isWhiteSpace content
     return $ Migration
         { _migrationName = name
         , _migrationDescription = description
         , _migrationRequires = requires
-        , _migrationChecksum = hash (T.encodeUtf8 content)
-        , _migrationScript = content
+        , _migrationChecksum = hash (T.encodeUtf8 content')
+        , _migrationScript = content'
         }
+    where
+        isWhiteSpace '\n' = True
+        isWhiteSpace '\r' = True
+        isWhiteSpace ' '  = True
+        isWhiteSpace '-'  = True
+        isWhiteSpace _    = False
 
 parseMigrationHeader :: Parser (MigrationId, Description, [Requires])
 parseMigrationHeader = do
