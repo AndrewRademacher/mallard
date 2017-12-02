@@ -6,6 +6,7 @@
 
 module Main where
 
+import           Config
 import           Control.Lens               hiding (argument, noneOf)
 import           Control.Monad.Catch
 import           Control.Monad.IO.Class
@@ -13,54 +14,14 @@ import           Control.Monad.Reader
 import           Control.Monad.State.Strict
 import qualified Data.HashMap.Strict        as Map
 import           Data.Maybe
-import           Data.Monoid
-import           Data.Text                  (Text)
 import           Data.Text.Lens             hiding (text)
 import           Database.Mallard
-import qualified Hasql.Connection           as Sql
-import           Hasql.Options.Applicative
 import qualified Hasql.Pool                 as Pool
-import           Options.Applicative        hiding (Parser)
 import           Options.Applicative
-import           Options.Applicative.Text
 import           Path
 import           Path.IO
 
-data OptsMigrate
-    = OptsMigrate
-        { _optsRootDirectory   :: Text
-        , _optsPostgreSettings :: Sql.Settings
-        , _optsRunTests        :: Bool
-        }
-    deriving (Show)
-
-$(makeClassy ''OptsMigrate)
-
-data OptsVersion
-    = OptsVersion Bool
-    deriving (Show)
-
-$(makeClassy ''OptsVersion)
-
-data Modes
-    = ModeMigrate OptsMigrate
-    | ModeVersion OptsVersion
-    deriving (Show)
-
-modesParser :: Parser Modes
-modesParser =
-        (ModeMigrate <$> optsMigrateParser)
-    <|> (ModeVersion <$> optsVersionParser)
-
-optsMigrateParser :: Parser OptsMigrate
-optsMigrateParser = OptsMigrate
-    <$> argument text (metavar "ROOT")
-    <*> connectionSettings Nothing
-    <*> flag False True (long "test" <> short 't' <> help "Run tests after migration.")
-
-optsVersionParser :: Parser OptsVersion
-optsVersionParser = OptsVersion
-    <$> flag False True (long "version" <> short 'v' <> help "Display application version.")
+-- State
 
 data AppState
     = AppState
@@ -71,27 +32,24 @@ $(makeClassy ''AppState)
 
 instance HasPostgreConnection AppState where postgreConnection = statePostgreConnection
 
+-- Application
+
 main :: IO ()
 main = do
-    modes <- execParser opts
+    modes <- execParser configParser
     case modes of
-        ModeMigrate o -> mainMigrate o
-        ModeVersion o -> mainVersion o
-    where
-        opts = info (modesParser <**> helper)
-            ( fullDesc
-            <> progDesc "Apply migrations to a database server."
-            <> header "mallard - applies SQL database migrations." )
+        CmdMigrate o -> mainMigrate o
+        CmdVersion o -> mainVersion o
 
 mainVersion :: OptsVersion -> IO ()
-mainVersion _ = putStrLn "mallard -- 0.6.1.2"
+mainVersion _ = putStrLn "mallard -- 0.6.1.3"
 
 mainMigrate :: OptsMigrate -> IO ()
 mainMigrate appOpts = do
     pool <- Pool.acquire (1, 30, appOpts ^. optsPostgreSettings)
     let initState = AppState pool
 
-    _ <- (flip runReaderT appOpts . flip runStateT initState) run
+    _ <- (flip runReaderT appOpts . flip runStateT initState) runMigrate
             `catchAll` (\e -> putStrLn (displayException e) >> return ((), initState))
 
     Pool.release pool
@@ -99,8 +57,8 @@ mainMigrate appOpts = do
 parseRelOrAbsDir :: (MonadThrow m, MonadCatch m, MonadIO m) => FilePath -> m (Path Abs Dir)
 parseRelOrAbsDir file = parseAbsDir file `catch` (\(_::PathException) -> makeAbsolute =<< parseRelDir file)
 
-run :: (MonadIO m, MonadCatch m, MonadReader OptsMigrate m, MonadState AppState m, MonadThrow m) => m ()
-run = do
+runMigrate :: (MonadIO m, MonadCatch m, MonadReader OptsMigrate m, MonadState AppState m, MonadThrow m) => m ()
+runMigrate = do
     --
     ensureMigratonSchema
     --

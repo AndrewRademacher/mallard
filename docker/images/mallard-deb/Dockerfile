@@ -26,8 +26,8 @@ RUN stack build
 
 RUN mkdir -p /tmp/installdir/usr/local/bin
 RUN cp $(stack exec -- which mallard) /tmp/installdir/usr/local/bin/mallard
-RUN fpm -s dir -t deb -n mallard -v 0.6.1.2 -C /tmp/installdir \
+RUN fpm -s dir -t deb -n mallard -v 0.6.1.3 -C /tmp/installdir \
         -d libpq5 \
         usr/local/bin/mallard
 
-CMD cp mallard_0.6.1.2_amd64.deb /dist
+CMD cp mallard_0.6.1.3_amd64.deb /dist
