@@ -46,7 +46,7 @@ mainVersion _ = putStrLn "mallard -- 0.6.1.3"
 
 mainMigrate :: OptsMigrate -> IO ()
 mainMigrate appOpts = do
-    pool <- Pool.acquire (1, 30, appOpts ^. optsPostgreSettings)
+    pool <- Pool.acquire (1, 30, appOpts ^. postgreSettings)
     let initState = AppState pool
 
     _ <- (flip runReaderT appOpts . flip runStateT initState) runMigrate
@@ -63,7 +63,7 @@ runMigrate = do
     ensureMigratonSchema
     --
     appOpts <- ask
-    root <- parseRelOrAbsDir (appOpts ^. optsRootDirectory . unpacked)
+    root <- parseRelOrAbsDir (appOpts ^. rootDirectory . unpacked)
     --
     (mPlanned, mTests) <- importDirectory root
     --
@@ -79,5 +79,5 @@ runMigrate = do
     toApply <- inflateMigrationIds mPlanned unapplied
     applyMigrations toApply
     --
-    when (appOpts ^. optsRunTests) $
+    when (appOpts ^. runTestsFlag) $
         runTests (Map.elems mTests)

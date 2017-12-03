@@ -2,17 +2,16 @@
 {-# LANGUAGE TemplateHaskell   #-}
 
 module Config
-    ( OptsMigrate (..)
-    , OptsVersion (..)
+    ( OptsMigrate
+    , OptsVersion
     , Command (..)
 
-    -- Migrate Lenses
-    , optsRootDirectory
-    , optsPostgreSettings
-    , optsRunTests
+    -- Shared Lenses
+    , rootDirectory
+    , postgreSettings
 
-    -- Version Lenses
-    , optsVersion
+    -- Migrate Lenses
+    , runTestsFlag
 
     , configParser
     ) where
@@ -26,21 +25,28 @@ import           Options.Applicative       hiding (Parser)
 import           Options.Applicative
 import           Options.Applicative.Text
 
+class HasRootDirectory a where rootDirectory :: Lens' a Text
+class HasPostgreSettings a where postgreSettings :: Lens' a Sql.Settings
+
 data OptsMigrate
     = OptsMigrate
-        { _optsRootDirectory   :: Text
-        , _optsPostgreSettings :: Sql.Settings
-        , _optsRunTests        :: Bool
+        { _omigrateRootDirectory   :: Text
+        , _omigratePostgreSettings :: Sql.Settings
+        , _omigrateRunTests        :: Bool
         }
     deriving (Show)
 
 $(makeClassy ''OptsMigrate)
 
+instance HasRootDirectory OptsMigrate where rootDirectory = omigrateRootDirectory
+instance HasPostgreSettings OptsMigrate where postgreSettings = omigratePostgreSettings
+
+runTestsFlag :: Lens' OptsMigrate Bool
+runTestsFlag = omigrateRunTests
+
 data OptsVersion
     = OptsVersion
     deriving (Show)
-
-$(makeClassy ''OptsVersion)
 
 data Command
     = CmdMigrate OptsMigrate
