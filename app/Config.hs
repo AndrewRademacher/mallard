@@ -3,6 +3,7 @@
 
 module Config
     ( OptsMigrate
+    , OptsConfirmChecksums
     , OptsVersion
     , Command (..)
 
@@ -28,6 +29,8 @@ import           Options.Applicative.Text
 class HasRootDirectory a where rootDirectory :: Lens' a Text
 class HasPostgreSettings a where postgreSettings :: Lens' a Sql.Settings
 
+--
+
 data OptsMigrate
     = OptsMigrate
         { _omigrateRootDirectory   :: Text
@@ -44,12 +47,29 @@ instance HasPostgreSettings OptsMigrate where postgreSettings = omigratePostgreS
 runTestsFlag :: Lens' OptsMigrate Bool
 runTestsFlag = omigrateRunTests
 
+--
+
+data OptsConfirmChecksums
+    = OptsConfirmChecksums
+        { _oconfirmRootDirectory   :: Text
+        , _oconfirmPostgreSettings :: Sql.Settings
+        }
+    deriving (Show)
+
+$(makeClassy ''OptsConfirmChecksums)
+
+instance HasRootDirectory OptsConfirmChecksums where rootDirectory = oconfirmRootDirectory
+instance HasPostgreSettings OptsConfirmChecksums where postgreSettings = oconfirmPostgreSettings
+
+--
+
 data OptsVersion
     = OptsVersion
     deriving (Show)
 
 data Command
     = CmdMigrate OptsMigrate
+    | CmdConfirmChecksums OptsConfirmChecksums
     | CmdVersion OptsVersion
     deriving (Show)
 
@@ -61,6 +81,7 @@ configParser = info (commandParser <**> helper)
 commandParser :: Parser Command
 commandParser = subparser
     ( command "migrate" infoMigrateParser
+    <> command "confirm-checksums" infoConfirmChecksumsParser
     <> command "version" infoVersionParser
     )
 
@@ -73,6 +94,19 @@ cmdMigrateParser = CmdMigrate <$> (OptsMigrate
     <$> argument text (metavar "ROOT")
     <*> connectionSettings Nothing
     <*> flag False True (long "test" <> short 't' <> help "Run tests after migration."))
+
+--
+
+infoConfirmChecksumsParser :: ParserInfo Command
+infoConfirmChecksumsParser = info (cmdConfirmChecksumsParser <**> helper)
+    (progDesc "Check database migrations for mismatched migration scripts.")
+
+cmdConfirmChecksumsParser :: Parser Command
+cmdConfirmChecksumsParser = CmdConfirmChecksums <$> (OptsConfirmChecksums
+    <$> argument text (metavar "ROOT")
+    <*> connectionSettings Nothing)
+
+--
 
 infoVersionParser :: ParserInfo Command
 infoVersionParser = info (cmdVersionParser <**> helper)

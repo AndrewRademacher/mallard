@@ -8,6 +8,11 @@ module Database.Mallard.Validation
     , validateAppliedMigration
     , AppliedMigrationMissingException (..)
     , DigestMismatchException (..)
+
+    -- Checking
+    , checkAppliedMigrations
+    , checkAppliedMigration
+    , DigestComparison (..)
     ) where
 
 import           Control.Exception
@@ -33,6 +38,30 @@ validateAppliedMigration plan aMig =
                 else throw $ DigestMismatchException mid pCheck mid aCheck
     where
         mid = aMig ^. migrationName
+
+-- | Validates applied migrations against planned migrations without throwing exceptions.
+checkAppliedMigrations :: (MonadIO m) => MigrationTable -> MigrationTable -> m [DigestComparison]
+checkAppliedMigrations planned applied = mapM (checkAppliedMigration planned) (Map.elems applied)
+
+checkAppliedMigration :: (MonadIO m) => MigrationTable -> Migration -> m DigestComparison
+checkAppliedMigration plan aMig =
+    case Map.lookup mid plan of
+        Nothing -> throw $ AppliedMigrationMissingException mid
+        Just pMig ->
+            let pCheck = pMig ^. migrationChecksum
+                aCheck = aMig ^. migrationChecksum
+            in return $ DigestComparison mid pCheck mid aCheck (aCheck == pCheck)
+    where
+        mid = aMig ^. migrationName
+
+data DigestComparison
+    = DigestComparison
+        { _dcPlannedMigrationName     :: MigrationId
+        , _dcPlannedMigrationChecksum :: MigrationDigest
+        , _dcAppliedMigrationName     :: MigrationId
+        , _dcAppliedMigrationChecksum :: MigrationDigest
+        , _dcChecksumsMatch           :: Bool
+        }
 
 -- Exceptions
 

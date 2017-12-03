@@ -14,6 +14,7 @@ import           Control.Monad.Reader
 import           Control.Monad.State.Strict
 import qualified Data.HashMap.Strict        as Map
 import           Data.Maybe
+import           Data.Monoid
 import           Data.Text.Lens             hiding (text)
 import           Database.Mallard
 import qualified Hasql.Pool                 as Pool
@@ -38,11 +39,14 @@ main :: IO ()
 main = do
     modes <- execParser configParser
     case modes of
-        CmdMigrate o -> mainMigrate o
-        CmdVersion o -> mainVersion o
+        CmdMigrate o          -> mainMigrate o
+        CmdConfirmChecksums o -> mainConfirmChecksums o
+        CmdVersion o          -> mainVersion o
 
 mainVersion :: OptsVersion -> IO ()
 mainVersion _ = putStrLn "mallard -- 0.6.1.3"
+
+--
 
 mainMigrate :: OptsMigrate -> IO ()
 mainMigrate appOpts = do
@@ -81,3 +85,37 @@ runMigrate = do
     --
     when (appOpts ^. runTestsFlag) $
         runTests (Map.elems mTests)
+
+--
+
+mainConfirmChecksums :: OptsConfirmChecksums -> IO ()
+mainConfirmChecksums appOpts = do
+    pool <- Pool.acquire (1, 30, appOpts ^. postgreSettings)
+    let initState = AppState pool
+
+    _ <- (flip runReaderT appOpts . flip runStateT initState) runConfirmChecksums
+        `catchAll` (\e -> putStrLn (displayException e) >> return ((), initState))
+
+    Pool.release pool
+
+runConfirmChecksums :: (MonadIO m, MonadCatch m, MonadReader OptsConfirmChecksums m, MonadState AppState m, MonadThrow m) => m ()
+runConfirmChecksums = do
+    --
+    appOpts <- ask
+    root <- parseRelOrAbsDir (appOpts ^. rootDirectory . unpacked)
+    --
+    (mPlanned, _) <- importDirectory root
+    --
+    mApplied <- getAppliedMigrations
+    --
+
+    cs <- checkAppliedMigrations mPlanned mApplied
+    mapM_ showComparison cs
+
+showComparison :: (MonadIO m) => DigestComparison -> m ()
+showComparison (DigestComparison n p _ a match) = liftIO $ do
+    putStrLn $ "" <> show n <> " : " <> (if match then "Valid" else "Invalid")
+    putStrLn $ ""
+    putStrLn $ "    " <> show p
+    putStrLn $ "    " <> show a
+    putStrLn $ ""
