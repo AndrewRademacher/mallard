@@ -44,7 +44,7 @@ main = do
         CmdVersion o          -> mainVersion o
 
 mainVersion :: OptsVersion -> IO ()
-mainVersion _ = putStrLn "mallard -- 0.6.1.3"
+mainVersion _ = putStrLn "mallard -- 0.6.2.0"
 
 --
 
