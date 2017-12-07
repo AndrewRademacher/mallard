@@ -14,7 +14,7 @@ sudo ln -s /opt/ghc/8.0.2/bin/ghc /usr/local/bin/ghc
 
 cd /vagrant
 cabal update
-cabal install --only-dependencies
+cabal install --only-dependencies --enable-tests
 
 sudo su postgres -c "psql -c \"CREATE ROLE vagrant WITH LOGIN SUPERUSER PASSWORD 'password';\""
 createdb vagrant
