@@ -7,17 +7,16 @@
 module Main where
 
 import           Config
-import           Control.Lens               hiding (argument, noneOf)
+import           Control.Lens                      hiding (argument, noneOf)
 import           Control.Monad.Catch
 import           Control.Monad.IO.Class
 import           Control.Monad.Reader
 import           Control.Monad.State.Strict
-import qualified Data.HashMap.Strict        as Map
-import           Data.Maybe
 import           Data.Monoid
-import           Data.Text.Lens             hiding (text)
+import           Data.Text.Lens                    hiding (text)
 import           Database.Mallard
-import qualified Hasql.Pool                 as Pool
+import qualified Database.Mallard.Commands.Migrate
+import qualified Hasql.Pool                        as Pool
 import           Options.Applicative
 import           Path
 import           Path.IO
@@ -51,40 +50,14 @@ mainVersion _ = putStrLn "mallard -- 0.6.2.0"
 mainMigrate :: OptsMigrate -> IO ()
 mainMigrate appOpts = do
     pool <- Pool.acquire (1, 30, appOpts ^. postgreSettings)
-    let initState = AppState pool
 
-    _ <- (flip runReaderT appOpts . flip runStateT initState) runMigrate
-            `catchAll` (\e -> putStrLn (displayException e) >> return ((), initState))
+    root <- parseRelOrAbsDir (appOpts ^. rootDirectory . unpacked)
+    Database.Mallard.Commands.Migrate.migrate pool root (appOpts ^. runTestsFlag)
 
     Pool.release pool
 
 parseRelOrAbsDir :: (MonadThrow m, MonadCatch m, MonadIO m) => FilePath -> m (Path Abs Dir)
 parseRelOrAbsDir file = parseAbsDir file `catch` (\(_::PathException) -> makeAbsolute =<< parseRelDir file)
-
-runMigrate :: (MonadIO m, MonadCatch m, MonadReader OptsMigrate m, MonadState AppState m, MonadThrow m) => m ()
-runMigrate = do
-    --
-    ensureMigratonSchema
-    --
-    appOpts <- ask
-    root <- parseRelOrAbsDir (appOpts ^. rootDirectory . unpacked)
-    --
-    (mPlanned, mTests) <- importDirectory root
-    --
-    mApplied <- getAppliedMigrations
-    --
-    let mGraph = fromJust $ mkMigrationGraph mPlanned
-    --
-
-    validateAppliedMigrations mPlanned mApplied
-
-    --
-    let unapplied = getUnappliedMigrations mGraph (Map.keys mApplied)
-    toApply <- inflateMigrationIds mPlanned unapplied
-    applyMigrations toApply
-    --
-    when (appOpts ^. runTestsFlag) $
-        runTests (Map.elems mTests)
 
 --
 
