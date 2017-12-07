@@ -11,6 +11,7 @@ module Database.Mallard.Postgre
     , getAppliedMigrations
     , applyMigration
     , applyMigrations
+    , setChecksum
     , runTests
     , runTest
     ) where
@@ -155,6 +156,15 @@ isMigrationVersionZero = do
         Just _  -> return True
     where
         stmt = "SELECT table_name FROM information_schema.tables WHERE table_schema = 'mallard' AND table_name = 'migrator_version';"
+
+setChecksum :: (MonadIO m, MonadState s m, HasPostgreConnection s) => MigrationId -> Digest a -> m ()
+setChecksum mid d = runDB $ query (d, mid) (statement stmt encoder decoder True)
+    where
+        stmt = "UPDATE mallard.applied_migrations SET checksum = $1 WHERE name = $2"
+        encoder =
+            contramap (toBytes . fst) (E.value E.bytea) <>
+            contramap (unMigrationId . snd) (E.value E.text)
+        decoder = D.unit
 
 -- Exceptions
 

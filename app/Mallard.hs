@@ -15,6 +15,7 @@ import           Data.Text.Lens                             hiding (text)
 import           Database.Mallard
 import qualified Database.Mallard.Commands.ConfirmChecksums as Commands
 import qualified Database.Mallard.Commands.Migrate          as Commands
+import qualified Database.Mallard.Commands.RepairChecksum   as Commands
 import qualified Hasql.Pool                                 as Pool
 import           Options.Applicative
 import           Path
@@ -39,6 +40,7 @@ main = do
     case modes of
         CmdMigrate o          -> mainMigrate o
         CmdConfirmChecksums o -> mainConfirmChecksums o
+        CmdRepairChecksum o   -> mainRepairChecksum o
         CmdVersion o          -> mainVersion o
 
 mainVersion :: OptsVersion -> IO ()
@@ -66,5 +68,16 @@ mainConfirmChecksums appOpts = do
 
     root <- parseRelOrAbsDir (appOpts ^. rootDirectory . unpacked)
     Commands.confirmChecksums pool root
+
+    Pool.release pool
+
+--
+
+mainRepairChecksum :: OptsRepairChecksum -> IO ()
+mainRepairChecksum appOpts = do
+    pool <- Pool.acquire (1, 30, appOpts ^. postgreSettings)
+
+    root <- parseRelOrAbsDir (appOpts ^. rootDirectory . unpacked)
+    Commands.repairChecksum pool root (MigrationId (appOpts ^. Config.migrationName))
 
     Pool.release pool

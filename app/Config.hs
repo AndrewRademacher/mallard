@@ -4,6 +4,7 @@
 module Config
     ( OptsMigrate
     , OptsConfirmChecksums
+    , OptsRepairChecksum
     , OptsVersion
     , Command (..)
 
@@ -13,6 +14,9 @@ module Config
 
     -- Migrate Lenses
     , runTestsFlag
+
+    -- Repair Lenses
+    , migrationName
 
     , configParser
     ) where
@@ -63,6 +67,24 @@ instance HasPostgreSettings OptsConfirmChecksums where postgreSettings = oconfir
 
 --
 
+data OptsRepairChecksum
+    = OptsRepairChecksum
+        { _orepairRootDirectory   :: Text
+        , _orepairMigrationName   :: Text
+        , _orepairPostgreSettings :: Sql.Settings
+        }
+    deriving (Show)
+
+$(makeClassy ''OptsRepairChecksum)
+
+instance HasRootDirectory OptsRepairChecksum where rootDirectory = orepairRootDirectory
+instance HasPostgreSettings OptsRepairChecksum where postgreSettings = orepairPostgreSettings
+
+migrationName :: Lens' OptsRepairChecksum Text
+migrationName = orepairMigrationName
+
+--
+
 data OptsVersion
     = OptsVersion
     deriving (Show)
@@ -70,6 +92,7 @@ data OptsVersion
 data Command
     = CmdMigrate OptsMigrate
     | CmdConfirmChecksums OptsConfirmChecksums
+    | CmdRepairChecksum OptsRepairChecksum
     | CmdVersion OptsVersion
     deriving (Show)
 
@@ -82,6 +105,7 @@ commandParser :: Parser Command
 commandParser = subparser
     ( command "migrate" infoMigrateParser
     <> command "confirm-checksums" infoConfirmChecksumsParser
+    <> command "repair-checksum" infoRepairChecksumParser
     <> command "version" infoVersionParser
     )
 
@@ -105,6 +129,20 @@ cmdConfirmChecksumsParser :: Parser Command
 cmdConfirmChecksumsParser = CmdConfirmChecksums <$> (OptsConfirmChecksums
     <$> argument text (metavar "ROOT")
     <*> connectionSettings Nothing)
+
+--
+
+infoRepairChecksumParser :: ParserInfo Command
+infoRepairChecksumParser = info (cmdRepairChecksumParser <**> helper)
+    (progDesc "Take a new checksum of migration and replace database entry.")
+
+cmdRepairChecksumParser :: Parser Command
+cmdRepairChecksumParser = CmdRepairChecksum <$> (OptsRepairChecksum
+    <$> argument text (metavar "ROOT")
+    <*> argument text (metavar "MIGRATION_NAME")
+    <*> connectionSettings Nothing)
+    -- <*>
+    -- <*> argument text (metavar "MIGRATION_NAME")
 
 --
 
