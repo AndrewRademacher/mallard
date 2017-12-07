@@ -26,4 +26,4 @@ sudo su postgres -c "psql -c \"CREATE ROLE vagrant WITH LOGIN SUPERUSER PASSWORD
 createdb vagrant
 
 # Packaging Tools
-# gem install -V --no-ri --no-rdoc fpm
+sudo gem install -V --no-ri --no-rdoc fpm
