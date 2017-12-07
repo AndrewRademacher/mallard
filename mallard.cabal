@@ -22,7 +22,8 @@ library
 
     ghc-options:       -Wall -Wno-unused-do-bind
 
-    exposed-modules:   Database.Mallard.Commands.Migrate
+    exposed-modules:   Database.Mallard.Commands.ConfirmChecksums
+                       Database.Mallard.Commands.Migrate
                        Database.Mallard.File
                        Database.Mallard.Graph
                        Database.Mallard.Parser
